@@ -2,7 +2,19 @@ import { randomBytes } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+/**
+ * Where guest photos and videos live.
+ *
+ * In development this is `public/uploads`, which Next serves directly. In
+ * production it points at a mounted volume (UPLOAD_DIR=/data/uploads) so files
+ * outlive the container — anything outside `public/` is served by the /media
+ * route instead.
+ */
+export const UPLOAD_DIR =
+  process.env.UPLOAD_DIR ?? path.join(process.cwd(), "public", "uploads");
+
+/** True when uploads land somewhere Next can serve as a static asset. */
+const servedStatically = !process.env.UPLOAD_DIR;
 
 const ALLOWED: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -19,8 +31,8 @@ const MAX_BYTES = 60 * 1024 * 1024;
 export class UploadError extends Error {}
 
 /**
- * Writes an uploaded photo or video into /public/uploads and returns the path
- * to store on the guest. Returns null when the form field was left empty.
+ * Writes an uploaded photo or video to disk and returns the URL path to store
+ * on the guest. Returns null when the form field was left empty.
  *
  * Local disk is the v1 store — swap this one function for S3 or Cloudinary and
  * nothing else in the app has to change.
@@ -47,5 +59,5 @@ export async function saveUpload(file: FormDataEntryValue | null): Promise<strin
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(path.join(UPLOAD_DIR, filename), buffer);
 
-  return `/uploads/${filename}`;
+  return servedStatically ? `/uploads/${filename}` : `/media/${filename}`;
 }

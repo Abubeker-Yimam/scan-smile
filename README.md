@@ -49,6 +49,36 @@ arrive:
 npm run db:reset-scans
 ```
 
+## Deploying to Railway
+
+The database and the uploaded media are both files on disk, so the service needs one volume and
+everything lives on it.
+
+1. **New Project → Deploy from GitHub repo**, pick this repo. Railway reads `railway.json` and
+   uses `npm run build` / `npm run start:prod` (which applies the schema before serving).
+2. **Add a volume** to the service, mount path `/data`.
+3. **Set variables:**
+
+   | Variable | Value |
+   | --- | --- |
+   | `DATABASE_URL` | `file:/data/prod.db` |
+   | `UPLOAD_DIR` | `/data/uploads` |
+   | `ADMIN_PASSWORD` | something only you know |
+   | `APP_BASE_URL` | your Railway URL, e.g. `https://scan-smile-production.up.railway.app` |
+
+4. **Generate a domain** (Settings → Networking), then set `APP_BASE_URL` to it and redeploy.
+   Get this right *before* printing anything — the URL is baked into every QR code.
+5. Optionally seed the sample wedding once: `railway run npm run db:seed`.
+
+Setting `UPLOAD_DIR` moves media off `public/` where Next can no longer serve it statically, so
+uploads are served by [`/media/[file]`](src/app/media/[file]/route.ts) instead — with range
+requests, so guests can scrub a video instead of downloading it whole. `saveUpload()` returns the
+matching URL for whichever mode is active, so nothing else in the app changes.
+
+**Watch the SQLite limit.** One file, one writer. Guests scanning at a big event all write a scan
+counter, and at a few hundred simultaneous scans you will start seeing lock contention. It is fine
+for testing and small events; move to Postgres before a 200-guest wedding.
+
 ## How the pieces fit
 
 ```
@@ -84,7 +114,7 @@ a keepsake, the other is a tool.
 - [ ] Give each host their own login if more than one client uses the dashboard — today it's a
       single shared `ADMIN_PASSWORD`.
 - [ ] Move uploads off local disk. `saveUpload()` in `src/lib/uploads.ts` is the only function that
-      touches the filesystem; point it at S3 or Cloudinary and nothing else changes.
-- [ ] Move off SQLite to Postgres if events will be created concurrently.
+      writes files; point it at S3 or Cloudinary and the `/media` route can go away with it.
+- [ ] Move off SQLite to Postgres before any event large enough that guests scan simultaneously.
 - [ ] Guest pages are unlisted but public — anyone with a code can open one. If a host wants a card
       to stop working after the event, add an expiry check in `src/app/g/[code]/page.tsx`.
