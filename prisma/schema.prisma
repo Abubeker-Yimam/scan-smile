@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// One booked celebration. The host configures it once; every guest card
+/// inherits its look, its fallback message and its fallback video.
+model Event {
+  id        String   @id @default(cuid())
+  title     String
+  /// WEDDING | BIRTHDAY | GRADUATION | ENGAGEMENT | TRADITIONAL | ANNIVERSARY | BABY_SHOWER | OTHER
+  kind      String   @default("WEDDING")
+  hostNames String
+  eventDate DateTime?
+  venue     String?
+
+  /// Used when a guest has no message of their own.
+  defaultMessage  String?
+  /// Used when a guest has no video of their own.
+  defaultVideoUrl String?
+  coverImageUrl   String?
+
+  guests    Guest[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// One invited person, one QR code, one page.
+model Guest {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  /// Printed under the QR code so a card can be matched back to a guest by eye.
+  code    String  @unique
+  name    String
+  /// Ato, Woizero, Dr., Mr. — printed above the name.
+  honorific String?
+  tableName String?
+  seat      String?
+
+  /// Overrides the event defaults when set.
+  message  String?
+  photoUrl String?
+  videoUrl String?
+
+  scanCount      Int       @default(0)
+  firstScannedAt DateTime?
+  lastScannedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId])
+}

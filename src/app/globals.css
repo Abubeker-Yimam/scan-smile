@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+@theme {
+  /* The hall after dark, and the cloth laid on the table. */
+  --color-ink: #14100d;
+  --color-ink-2: #211913;
+  --color-ink-3: #362a20;
+  --color-cotton: #faf7f0;
+  --color-cotton-2: #f0eade;
+  --color-cotton-3: #e2d9c8;
+  --color-coffee: #2a211a;
+  --color-ash: #6b6156;
+  --color-gold: #c79a3f;
+
+  --font-display: "Fraunces", "Noto Serif Ethiopic", Georgia, serif;
+  --font-body: "Karla", "Noto Sans Ethiopic", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "Noto Sans Ethiopic", ui-monospace, monospace;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  font-synthesis-weight: none;
+}
+
+::selection {
+  background: var(--color-gold);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Tibeb — the woven band.
+   Three threads crossing on a loom: a warp ground, a diagonal weft lattice,
+   and a highlight running the length of the band. Colors come from the event
+   kind via --t1/--t2/--t3, so one rule dresses every occasion.
+   --------------------------------------------------------------------------- */
+.tibeb {
+  --t1: #8e1f2f;
+  --t2: #1e5a46;
+  --t3: #d4a24c;
+  --unit: 9px;
+  background-color: var(--t1);
+  background-image:
+    /* highlight thread down the centre line */
+    linear-gradient(
+      to bottom,
+      transparent calc(50% - 1px),
+      var(--t3) calc(50% - 1px),
+      var(--t3) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    /* diagonal weft lattice */
+    repeating-linear-gradient(
+      45deg,
+      var(--t2) 0 calc(var(--unit) / 2),
+      transparent calc(var(--unit) / 2) var(--unit)
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      var(--t3) 0 calc(var(--unit) / 2),
+      transparent calc(var(--unit) / 2) var(--unit)
+    );
+  box-shadow:
+    inset 0 1px 0 rgb(0 0 0 / 0.25),
+    inset 0 -1px 0 rgb(0 0 0 / 0.25);
+}
+
+/* Vertical run of the same band — used down the edge of the card on wide screens. */
+.tibeb-v {
+  background-image:
+    linear-gradient(
+      to right,
+      transparent calc(50% - 1px),
+      var(--t3) calc(50% - 1px),
+      var(--t3) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    repeating-linear-gradient(
+      45deg,
+      var(--t2) 0 calc(var(--unit) / 2),
+      transparent calc(var(--unit) / 2) var(--unit)
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      var(--t3) 0 calc(var(--unit) / 2),
+      transparent calc(var(--unit) / 2) var(--unit)
+    );
+  box-shadow:
+    inset 1px 0 0 rgb(0 0 0 / 0.25),
+    inset -1px 0 0 rgb(0 0 0 / 0.25);
+}
+
+/* A single thread pulled loose — divides sections inside the card. */
+.tibeb-rule {
+  height: 3px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--t1) 0 6px,
+    var(--t3) 6px 9px,
+    var(--t2) 9px 15px,
+    var(--t3) 15px 18px
+  );
+  opacity: 0.85;
+}
+
+/* ---------------------------------------------------------------------------
+   The card unfolds once, on arrival. Nothing animates on scroll or hover —
+   the guest is holding a phone at a table, not browsing.
+   --------------------------------------------------------------------------- */
+@keyframes unfold-band {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+.u-band {
+  animation: unfold-band 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: left center;
+}
+
+.u-rise {
+  animation: rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .u-band,
+  .u-rise {
+    animation: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Print — table cards come off an A4 sheet with a scissor grid.
+   --------------------------------------------------------------------------- */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  body {
+    background: #fff !important;
+  }
+  /* The dashboard shell is a screen container; the sheet needs the full page. */
+  .admin-shell {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .print-card {
+    break-inside: avoid;
+  }
+}
