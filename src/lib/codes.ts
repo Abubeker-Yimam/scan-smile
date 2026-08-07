@@ -12,8 +12,15 @@ export function generateCode(length = 7): string {
   return out;
 }
 
-/** Absolute URL a guest's QR code points at. */
+/**
+ * Absolute URL a guest's QR code points at.
+ *
+ * Read at runtime, never inlined at build: moving the site to a new domain is
+ * an env-var change and a restart, not a rebuild of every code. Only ever
+ * called on the server, so the value stays out of the client bundle.
+ */
 export function guestUrl(code: string): string {
-  const base = (process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-  return `${base}/g/${code}`;
+  const configured =
+    process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  return `${configured.replace(/\/$/, "")}/g/${code}`;
 }

@@ -195,7 +195,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <p className="font-body text-sm text-ash">
         Guest pages live at{" "}
         <code className="font-mono text-coffee">{guestUrl("CODE")}</code>. Set{" "}
-        <code className="font-mono text-coffee">NEXT_PUBLIC_BASE_URL</code> before printing so the
+        <code className="font-mono text-coffee">APP_BASE_URL</code> before printing so the
         codes point somewhere a phone can reach.
       </p>
     </div>
