@@ -56,6 +56,13 @@ everything lives on it.
 
 1. **New Project → Deploy from GitHub repo**, pick this repo. Railway reads `railway.json` and
    uses `npm run build` / `npm run start:prod` (which applies the schema before serving).
+
+   Node 22 is required, pinned by `.nvmrc` and `engines` in `package.json`. If the builder picks
+   an older version anyway, set `NIXPACKS_NODE_VERSION=22`. Node 18 ships npm 9, which fails to
+   install platform-specific optional dependencies ([npm/cli#4828]) and the Tailwind native
+   binary goes missing mid-build.
+
+   [npm/cli#4828]: https://github.com/npm/cli/issues/4828
 2. **Add a volume** to the service, mount path `/data`.
 3. **Set variables:**
 
