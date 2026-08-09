@@ -120,11 +120,51 @@ Migrations are applied by `prisma migrate deploy`, which runs only committed mig
 drops a column. Do not put `prisma db push` in a start or build command — it silently reshapes a
 live database to match whatever the schema file happens to say.
 
+**Two URLs, not one.** `DATABASE_URL` serves traffic and `DIRECT_URL` is used only by
+`prisma migrate`. On a plain Postgres they are the same string. They differ on a host that puts a
+connection pooler in front, because a pooler in transaction mode hands your connection to someone
+else between queries — fine for a query, fatal for a migration that holds a lock across several.
+
+### Supabase, end to end
+
+Supabase covers both the database and the media, so it is one signup rather than two.
+
+**Database.** Project Settings → Database → Connection string, and take the *pooler* URLs. Both
+are IPv4; the `db.<ref>.supabase.co` host shown at the top is IPv6-only and will not resolve from
+Vercel, which is the single most common way this setup fails.
+
+```
+DATABASE_URL  …pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+DIRECT_URL    …pooler.supabase.com:5432/postgres
+```
+
+Port 6543 is the transaction pooler, for serving. `pgbouncer=true` tells Prisma to stop using
+prepared statements, which do not survive that pooler. `connection_limit=1` keeps a swarm of
+serverless functions from exhausting the pool. Port 5432 is the session pooler, for migrations.
+
+**Storage.** Create a bucket and mark it **public** — guests are not signed in, and their browsers
+fetch photos directly. Then Project Settings → Storage → S3 access keys, and generate one:
+
+```
+S3_BUCKET         your bucket name
+S3_ENDPOINT       https://<ref>.supabase.co/storage/v1/s3
+S3_REGION         your project's region, e.g. eu-central-1
+MEDIA_BASE_URL    https://<ref>.supabase.co/storage/v1/object/public/<bucket>
+```
+
+The endpoint and the public base are different paths on purpose: the first is where the app writes
+through the S3 API, the second is where browsers read. Supabase requires path-style addressing,
+which the driver already uses whenever `S3_ENDPOINT` is set.
+
+The free tier is 1GB stored and 5GB of egress a month. A 200-guest event is roughly 60MB of photos,
+so the ceiling is egress — about 80 events' worth of guests loading their page a few times each.
+Cloudflare R2 is the alternative and bills no egress at all; the variables are the same four.
+
 ### Deploying to Vercel
 
 Works, with the media and database both off-box — which they now are. Set `S3_*` and
-`MEDIA_BASE_URL` for storage and `DATABASE_URL` for Postgres; there is no local disk to fall back
-on, so neither is optional.
+`MEDIA_BASE_URL` for storage, `DATABASE_URL` and `DIRECT_URL` for Postgres; there is no local disk
+to fall back on, so neither is optional.
 
 Vercel never runs a start command, so `prisma migrate deploy` would never fire from `start:prod`.
 The `vercel-build` script exists for that: Vercel runs it in place of the default build command
