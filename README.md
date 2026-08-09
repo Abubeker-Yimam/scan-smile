@@ -12,13 +12,14 @@ baby showers.
 ## Run it
 
 ```bash
+docker run -d -e POSTGRES_PASSWORD=dev -p 5432:5432 postgres:16   # or a Neon URL
 npm install
-cp .env.example .env   # then set ADMIN_PASSWORD to something of your own
+cp .env.example .env   # set DATABASE_URL, and ADMIN_PASSWORD to something of your own
 npm run setup          # applies migrations and loads a sample wedding
 npm run dev
 ```
 
-On Windows PowerShell, use `Copy-Item .env.example .env` for the second step.
+On Windows PowerShell, use `Copy-Item .env.example .env` for the third step.
 
 | Where | What |
 | --- | --- |
@@ -82,15 +83,12 @@ Three moving parts: the app, the database, and the media.
 
 ### The app
 
-Any host that runs a Node server works — Railway, Render, Fly.io, a VPS. This is not a static site
-and not a good fit for a pure edge runtime: it uses `sharp` for image processing and streams video
-through a Node route.
+Vercel, Railway, Render, Fly.io and a plain VPS all work. This is not a static site and not a fit
+for a pure edge runtime: it uses `sharp` to process images and streams video through a Node route.
 
-`railway.json` is already set up: `npm run build` to build, `npm run start:prod` to serve, which
-applies pending migrations first. Node 22 is required, pinned by `.nvmrc` and `engines`. If the
-builder picks an older version anyway, set `NIXPACKS_NODE_VERSION=22` — Node 18 ships npm 9, which
-fails to install platform-specific optional dependencies ([npm/cli#4828]) and the Tailwind native
-binary goes missing mid-build.
+Node 22 is required, pinned by `.nvmrc` and `engines`. If a builder picks an older version anyway,
+set `NIXPACKS_NODE_VERSION=22` — Node 18 ships npm 9, which fails to install platform-specific
+optional dependencies ([npm/cli#4828]) and the Tailwind native binary goes missing mid-build.
 
 [npm/cli#4828]: https://github.com/npm/cli/issues/4828
 
@@ -106,28 +104,44 @@ anything** — that URL is baked into every QR code:
 
 ### The database
 
-SQLite on a mounted volume (`DATABASE_URL="file:/data/prod.db"`) is what this repo ships with, and
-it is genuinely fine for one event at a time. One file, one writer: every guest who scans writes a
-counter, so a few hundred people scanning as dinner is announced will contend for the write lock.
-It also pins the app to a single container and makes backups a file copy you have to remember.
-
-**Move to Postgres before a large event or a second concurrent one.** Managed Postgres from
-Railway, Neon or Supabase all work; Neon's branching is pleasant for staging. The switch is:
+**Postgres, in development as well as production.** Neon, Supabase and Railway all have a usable
+free tier; Neon's branching is pleasant for staging. Locally, Docker does the job:
 
 ```bash
-# 1. change the provider in prisma/schema.prisma
-#      datasource db { provider = "postgresql"  ... }
-# 2. Prisma migrations are dialect-specific, so regenerate them
-rm -rf prisma/migrations
-DATABASE_URL="postgres://…" npx prisma migrate dev --name init
+docker run -d -e POSTGRES_PASSWORD=dev -p 5432:5432 postgres:16
 ```
 
-Existing SQLite data does not carry across on its own. If an event is already live, export it
-first — or move between events, when there is nothing to lose.
+This used to be SQLite, which was fine for one event at a time and wrong for everything else. One
+file, one writer: every guest who scans writes a counter, so a few hundred people scanning as
+dinner is announced contend for the write lock. It also pins the app to a single container with a
+disk, which rules out most hosts.
 
-`npm run start:prod` runs `prisma migrate deploy`, which applies only committed migrations and
-never drops a column. Do not put `prisma db push` in a start command: it silently reshapes a live
-database to match whatever the schema file happens to say.
+Migrations are applied by `prisma migrate deploy`, which runs only committed migrations and never
+drops a column. Do not put `prisma db push` in a start or build command — it silently reshapes a
+live database to match whatever the schema file happens to say.
+
+### Deploying to Vercel
+
+Works, with the media and database both off-box — which they now are. Set `S3_*` and
+`MEDIA_BASE_URL` for storage and `DATABASE_URL` for Postgres; there is no local disk to fall back
+on, so neither is optional.
+
+Vercel never runs a start command, so `prisma migrate deploy` would never fire from `start:prod`.
+The `vercel-build` script exists for that: Vercel runs it in place of the default build command
+and migrations are applied at build time. Local `npm run build` stays database-free.
+
+**One limit to know:** Vercel caps serverless request bodies at 4.5MB, below the 50MB this app
+allows for video. Photos are unaffected — the browser downscales to a few hundred KB before
+sending. Video *uploads* over 4.5MB fail at the platform layer, before the request reaches the
+app, so the error is an opaque 413 rather than the message in `uploads.ts`. Pasted YouTube and
+Vimeo links are unaffected: they are just a URL in a text field and never touch an upload path.
+
+Railway has no such cap, which is the main reason to prefer it if hosts will upload video files.
+
+### Deploying to Railway
+
+`railway.json` is already set up: `npm run build` to build, `npm run start:prod` to serve, which
+applies pending migrations first. Add a Postgres service and Railway sets `DATABASE_URL` for you.
 
 ### Media storage
 
@@ -238,7 +252,6 @@ a keepsake, the other is a tool.
 
 - [ ] Give each host their own login if clients will use the dashboard directly — today it's a
       single shared `ADMIN_PASSWORD` and every host can see every other host's guest list.
-- [ ] Move off SQLite to Postgres before any event large enough that guests scan simultaneously.
 - [ ] Guest pages are unlisted but public — anyone with a code can open one. If a host wants a card
       to stop working after the event, add an expiry check in `src/app/g/[code]/page.tsx`.
 - [ ] Every scan writes a row, so link previews and crawlers inflate the counters. `X-Robots-Tag`
