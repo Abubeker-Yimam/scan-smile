@@ -18,6 +18,14 @@ model Event {
   eventDate DateTime?
   venue     String?
 
+  /// Overrides the word printed above every guest's name. Lets a host label an
+  /// occasion the built-in list does not cover, without a code change.
+  eyebrow   String?
+  /// Three comma-separated hex colours overriding the palette `kind` implies —
+  /// warp, weft and highlight of the tibeb band. Null means use the built-in
+  /// palette for this kind.
+  themeThreads String?
+
   /// Used when a guest has no message of their own.
   defaultMessage  String?
   /// Used when a guest has no video of their own.

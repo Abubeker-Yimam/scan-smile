@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { kindConfig, threadVars } from "@/lib/events";
+import { eventTheme, threadVars } from "@/lib/events";
 import { formatEventDate } from "@/lib/media";
 import { PrintButton } from "./print-button";
 
@@ -19,11 +19,11 @@ export default async function CardsPage({ params }: { params: Promise<{ id: stri
   });
   if (!event) notFound();
 
-  const kind = kindConfig(event.kind);
+  const kind = eventTheme(event);
   const date = formatEventDate(event.eventDate);
 
   return (
-    <div style={threadVars(event.kind)}>
+    <div style={threadVars(event)}>
       <div className="no-print mb-10 flex flex-wrap items-baseline justify-between gap-4">
         <div>
           <Link

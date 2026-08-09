@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { kindConfig, threadVars } from "@/lib/events";
+import { eventTheme, threadVars } from "@/lib/events";
 import { formatEventDate, resolveVideo } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +41,7 @@ export default async function GuestPage({ params }: Params) {
   });
 
   const { event } = guest;
-  const kind = kindConfig(event.kind);
+  const kind = eventTheme(event);
   const message = guest.message?.trim() || event.defaultMessage?.trim() || null;
   const videoUrl = guest.videoUrl?.trim() || event.defaultVideoUrl?.trim() || null;
   const video = videoUrl ? resolveVideo(videoUrl) : null;
@@ -51,7 +51,7 @@ export default async function GuestPage({ params }: Params) {
 
   return (
     <main
-      style={threadVars(event.kind)}
+      style={threadVars(event)}
       className="min-h-dvh bg-ink px-4 py-6 sm:px-6 sm:py-12"
     >
       <div

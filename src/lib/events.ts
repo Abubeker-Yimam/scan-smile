@@ -77,8 +77,49 @@ export const KIND_OPTIONS = Object.entries(EVENT_KINDS).map(([value, cfg]) => ({
   label: cfg.label,
 }));
 
-/** CSS custom properties that drive the tibeb band for a given event kind. */
-export function threadVars(kind: string): CSSProperties {
-  const [t1, t2, t3] = kindConfig(kind).threads;
+/**
+ * The fields of an event that decide how its cards look. Anything with these
+ * three properties will do, so pages can pass a Prisma row straight in.
+ */
+export type Themed = {
+  kind: string;
+  eyebrow?: string | null;
+  themeThreads?: string | null;
+};
+
+/**
+ * Reads three hex colours out of the stored `themeThreads` string, or null if
+ * it is absent or malformed. A bad value falls back to the built-in palette
+ * rather than rendering a card with missing threads.
+ */
+export function parseThreads(value: string | null | undefined): KindConfig["threads"] | null {
+  if (!value) return null;
+  const parts = value.split(",").map((part) => part.trim());
+  if (parts.length !== 3) return null;
+  if (!parts.every((part) => /^#[0-9a-fA-F]{6}$/.test(part))) return null;
+  return [parts[0], parts[1], parts[2]];
+}
+
+/**
+ * How one particular event should look.
+ *
+ * The built-in palettes are defaults, not the whole set. A host who wants an
+ * occasion the list does not name, or their own colours, sets `eyebrow` and
+ * `themeThreads` in the dashboard — so a new kind of celebration is a form
+ * submission rather than an edit to this file and a deploy.
+ */
+export function eventTheme(event: Themed): KindConfig {
+  const base = kindConfig(event.kind);
+  return {
+    label: base.label,
+    eyebrow: event.eyebrow?.trim() || base.eyebrow,
+    threads: parseThreads(event.themeThreads) ?? base.threads,
+  };
+}
+
+/** CSS custom properties that drive the tibeb band for an event. */
+export function threadVars(event: Themed | string): CSSProperties {
+  const [t1, t2, t3] =
+    typeof event === "string" ? kindConfig(event).threads : eventTheme(event).threads;
   return { "--t1": t1, "--t2": t2, "--t3": t3 } as CSSProperties;
 }

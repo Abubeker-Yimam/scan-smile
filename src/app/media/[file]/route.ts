@@ -3,7 +3,7 @@ import { stat } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
 import { Readable } from "stream";
-import { UPLOAD_DIR } from "@/lib/uploads";
+import { UPLOAD_DIR } from "@/lib/storage";
 
 export const runtime = "nodejs";
 

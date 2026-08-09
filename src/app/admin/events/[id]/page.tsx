@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { guestUrl } from "@/lib/codes";
-import { kindConfig, threadVars } from "@/lib/events";
+import { eventTheme, threadVars } from "@/lib/events";
 import { formatEventDate } from "@/lib/media";
 import { deleteEvent } from "../../actions";
 import { AddGuestForm, BulkGuestForm, EventForm } from "../../forms";
@@ -21,7 +21,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   });
   if (!event) notFound();
 
-  const kind = kindConfig(event.kind);
+  const kind = eventTheme(event);
   const scanned = event.guests.filter((g) => g.scanCount > 0).length;
   const ready = event.guests.filter(
     (g) => (g.message ?? event.defaultMessage) && (g.photoUrl || g.videoUrl)
@@ -39,7 +39,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
 
         <div className="mt-5 flex items-stretch gap-5">
           <span
-            style={threadVars(event.kind)}
+            style={threadVars(event)}
             className="tibeb tibeb-v w-[6px] shrink-0"
             aria-hidden="true"
           />
@@ -154,6 +154,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               hostNames: event.hostNames,
               eventDate: isoDate(event.eventDate),
               venue: event.venue,
+              eyebrow: event.eyebrow,
+              themeThreads: event.themeThreads,
               defaultMessage: event.defaultMessage,
               defaultVideoUrl: event.defaultVideoUrl,
             }}

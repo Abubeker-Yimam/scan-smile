@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { guestUrl } from "@/lib/codes";
-import { kindConfig, threadVars } from "@/lib/events";
+import { eventTheme, threadVars } from "@/lib/events";
 import { clearGuestMedia, deleteGuest } from "../../../../actions";
 import { CopyLink, GuestForm } from "../../../../forms";
 
@@ -21,7 +21,7 @@ export default async function GuestEditorPage({
   if (!guest || guest.eventId !== id) notFound();
 
   const url = guestUrl(guest.code);
-  const kind = kindConfig(guest.event.kind);
+  const kind = eventTheme(guest.event);
 
   return (
     <div className="space-y-12">
@@ -34,7 +34,7 @@ export default async function GuestEditorPage({
         </Link>
         <div className="mt-5 flex items-stretch gap-5">
           <span
-            style={threadVars(guest.event.kind)}
+            style={threadVars(guest.event)}
             className="tibeb tibeb-v w-[6px] shrink-0"
             aria-hidden="true"
           />

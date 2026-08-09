@@ -44,13 +44,13 @@ export default async function AdminHome() {
                     className="group flex items-stretch gap-5 py-5 transition-colors hover:bg-cotton-2"
                   >
                     <span
-                      style={threadVars(event.kind)}
+                      style={threadVars(event)}
                       className="tibeb tibeb-v w-[6px] shrink-0"
                       aria-hidden="true"
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block font-mono text-[0.62rem] tracking-[0.18em] text-ash uppercase">
-                        {kindConfig(event.kind).label}
+                        {event.eyebrow?.trim() || kindConfig(event.kind).label}
                         {date && ` · ${date}`}
                       </span>
                       <span className="mt-1 block truncate font-display text-xl font-semibold group-hover:underline">

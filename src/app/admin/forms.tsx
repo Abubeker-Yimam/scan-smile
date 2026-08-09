@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { KIND_OPTIONS } from "@/lib/events";
+import { ImageInput, VideoInput } from "./media-inputs";
 import {
   addGuest,
   addGuestsBulk,
@@ -52,6 +53,8 @@ type EventDefaults = {
   hostNames?: string;
   eventDate?: string;
   venue?: string | null;
+  eyebrow?: string | null;
+  themeThreads?: string | null;
   defaultMessage?: string | null;
   defaultVideoUrl?: string | null;
 };
@@ -141,13 +144,47 @@ export function EventForm({ event }: { event?: EventDefaults }) {
               className={FIELD}
             />
           </label>
+
           <label className="block">
             <span className={LABEL}>Cover photo</span>
-            <input type="file" name="coverImage" accept="image/*" className={FIELD} />
-            <span className="mt-1.5 block font-body text-xs text-ash">
-              Shown to guests who have no photo of their own.
-            </span>
+            <ImageInput
+              name="coverImage"
+              className={FIELD}
+              hint="Shown to guests who have no photo of their own."
+            />
           </label>
+
+          <fieldset className="border-t border-cotton-3 pt-6">
+            <legend className="sr-only">Card appearance</legend>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <label className="block">
+                <span className={LABEL}>Word above the guest&apos;s name</span>
+                <input
+                  name="eyebrow"
+                  defaultValue={event?.eyebrow ?? ""}
+                  placeholder="Shengerena"
+                  className={FIELD}
+                />
+                <span className="mt-1.5 block font-body text-xs text-ash">
+                  Leave empty to use the occasion&apos;s own word. Set it to name a celebration
+                  the list above doesn&apos;t cover.
+                </span>
+              </label>
+              <label className="block">
+                <span className={LABEL}>Card colours</span>
+                <input
+                  name="themeThreads"
+                  defaultValue={event?.themeThreads ?? ""}
+                  placeholder="#8E1F2F, #1E5A46, #D4A24C"
+                  className={`${FIELD} font-mono text-sm`}
+                />
+                <span className="mt-1.5 block font-body text-xs text-ash">
+                  Three hex codes — the woven band&apos;s three threads. Empty uses the
+                  occasion&apos;s colours.
+                </span>
+              </label>
+            </div>
+          </fieldset>
         </>
       )}
 
@@ -298,11 +335,11 @@ export function GuestForm({ guest }: { guest: GuestDefaults }) {
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="block">
           <span className={LABEL}>Photo with the hosts</span>
-          <input type="file" name="photo" accept="image/*" className={FIELD} />
+          <ImageInput name="photo" className={FIELD} />
         </label>
         <label className="block">
           <span className={LABEL}>Personal video</span>
-          <input type="file" name="video" accept="video/*" className={FIELD} />
+          <VideoInput name="video" className={FIELD} />
         </label>
       </div>
 
