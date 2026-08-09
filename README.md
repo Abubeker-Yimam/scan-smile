@@ -14,7 +14,7 @@ baby showers.
 ```bash
 npm install
 cp .env.example .env   # then set ADMIN_PASSWORD to something of your own
-npm run setup          # creates the SQLite database and loads a sample wedding
+npm run setup          # applies migrations and loads a sample wedding
 npm run dev
 ```
 
@@ -49,42 +49,155 @@ arrive:
 npm run db:reset-scans
 ```
 
-## Deploying to Railway
+## Running an event
 
-The database and the uploaded media are both files on disk, so the service needs one volume and
-everything lives on it.
+Nothing here needs a developer. Everything a live event requires — creating it, naming the
+occasion, choosing its colours, adding guests, writing their messages, uploading photos and
+video, printing the cards — is a form in `/admin`.
 
-1. **New Project → Deploy from GitHub repo**, pick this repo. Railway reads `railway.json` and
-   uses `npm run build` / `npm run start:prod` (which applies the schema before serving).
+| To do this | Go here |
+| --- | --- |
+| Book an event | `/admin`, "Book a new event" |
+| Add guests, one at a time or a pasted list | `/admin/events/<id>` |
+| Write a guest's message, add their photo and video | `/admin/events/<id>/guests/<guestId>` |
+| Change the message or video every guest sees | `/admin/events/<id>`, "Event settings" |
+| Name an occasion the list doesn't cover | "Word above the guest's name" |
+| Give an event its own colours | "Card colours" — three hex codes |
+| Print the table cards | "Print table cards", four to an A4 sheet |
 
-   Node 22 is required, pinned by `.nvmrc` and `engines` in `package.json`. If the builder picks
-   an older version anyway, set `NIXPACKS_NODE_VERSION=22`. Node 18 ships npm 9, which fails to
-   install platform-specific optional dependencies ([npm/cli#4828]) and the Tailwind native
-   binary goes missing mid-build.
+The occasion list in [`src/lib/events.ts`](src/lib/events.ts) is a set of defaults, not a fixed
+menu. A host who needs "Mahiber" or a colour scheme matched to their flowers sets the eyebrow and
+the three thread colours on the event itself; the built-in palette only applies when those are
+empty. Adding a *new named preset* to the dropdown is still a code change, but nothing is blocked
+on one.
 
-   [npm/cli#4828]: https://github.com/npm/cli/issues/4828
-2. **Add a volume** to the service, mount path `/data`.
-3. **Set variables:**
+The one thing still hard-coded is **who can log in**: a single shared `ADMIN_PASSWORD` for the
+whole dashboard. Every host who books an event uses the same password and can see every other
+host's guest list. That is fine while you run the events yourself and wrong the moment clients log
+in directly.
 
-   | Variable | Value |
-   | --- | --- |
-   | `DATABASE_URL` | `file:/data/prod.db` |
-   | `UPLOAD_DIR` | `/data/uploads` |
-   | `ADMIN_PASSWORD` | something only you know |
-   | `APP_BASE_URL` | your Railway URL, e.g. `https://scan-smile-production.up.railway.app` |
+## Deploying
 
-4. **Generate a domain** (Settings → Networking), then set `APP_BASE_URL` to it and redeploy.
-   Get this right *before* printing anything — the URL is baked into every QR code.
-5. Optionally seed the sample wedding once: `railway run npm run db:seed`.
+Three moving parts: the app, the database, and the media.
 
-Setting `UPLOAD_DIR` moves media off `public/` where Next can no longer serve it statically, so
-uploads are served by [`/media/[file]`](src/app/media/[file]/route.ts) instead — with range
-requests, so guests can scrub a video instead of downloading it whole. `saveUpload()` returns the
-matching URL for whichever mode is active, so nothing else in the app changes.
+### The app
 
-**Watch the SQLite limit.** One file, one writer. Guests scanning at a big event all write a scan
-counter, and at a few hundred simultaneous scans you will start seeing lock contention. It is fine
-for testing and small events; move to Postgres before a 200-guest wedding.
+Any host that runs a Node server works — Railway, Render, Fly.io, a VPS. This is not a static site
+and not a good fit for a pure edge runtime: it uses `sharp` for image processing and streams video
+through a Node route.
+
+`railway.json` is already set up: `npm run build` to build, `npm run start:prod` to serve, which
+applies pending migrations first. Node 22 is required, pinned by `.nvmrc` and `engines`. If the
+builder picks an older version anyway, set `NIXPACKS_NODE_VERSION=22` — Node 18 ships npm 9, which
+fails to install platform-specific optional dependencies ([npm/cli#4828]) and the Tailwind native
+binary goes missing mid-build.
+
+[npm/cli#4828]: https://github.com/npm/cli/issues/4828
+
+Set these variables, then **generate a domain and set `APP_BASE_URL` to it before printing
+anything** — that URL is baked into every QR code:
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | your database connection string |
+| `ADMIN_PASSWORD` | something only you know |
+| `APP_BASE_URL` | your public URL, e.g. `https://scan-smile-production.up.railway.app` |
+| `S3_*`, `MEDIA_BASE_URL` | see [Media storage](#media-storage) |
+
+### The database
+
+SQLite on a mounted volume (`DATABASE_URL="file:/data/prod.db"`) is what this repo ships with, and
+it is genuinely fine for one event at a time. One file, one writer: every guest who scans writes a
+counter, so a few hundred people scanning as dinner is announced will contend for the write lock.
+It also pins the app to a single container and makes backups a file copy you have to remember.
+
+**Move to Postgres before a large event or a second concurrent one.** Managed Postgres from
+Railway, Neon or Supabase all work; Neon's branching is pleasant for staging. The switch is:
+
+```bash
+# 1. change the provider in prisma/schema.prisma
+#      datasource db { provider = "postgresql"  ... }
+# 2. Prisma migrations are dialect-specific, so regenerate them
+rm -rf prisma/migrations
+DATABASE_URL="postgres://…" npx prisma migrate dev --name init
+```
+
+Existing SQLite data does not carry across on its own. If an event is already live, export it
+first — or move between events, when there is nothing to lose.
+
+`npm run start:prod` runs `prisma migrate deploy`, which applies only committed migrations and
+never drops a column. Do not put `prisma db push` in a start command: it silently reshapes a live
+database to match whatever the schema file happens to say.
+
+### Media storage
+
+Two drivers, chosen by environment, behind one interface in
+[`src/lib/storage.ts`](src/lib/storage.ts).
+
+**Object storage is the recommendation** — set `S3_BUCKET` and the app uses it. Any S3-compatible
+service works; **Cloudflare R2** is the one to pick, because egress is free and guest photos are
+almost all egress. A 200-guest event with a photo each is roughly 60MB stored and pennies a month.
+
+| Variable | Note |
+| --- | --- |
+| `S3_BUCKET` | Setting this switches the driver. The others then become required. |
+| `S3_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com`. Omit for AWS S3. |
+| `S3_REGION` | `auto` for R2. |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | An R2 API token scoped to this one bucket. |
+| `MEDIA_BASE_URL` | Public base the *browser* fetches from — a custom domain on the bucket, or its `r2.dev` subdomain. Must be world-readable. |
+
+Guests' browsers fetch photos straight from the bucket, so the app never sits in the path of a
+download and a slow guest on hotel wifi cannot occupy a server connection. Objects are written
+with a one-year immutable cache header; keys carry a random component and are never reused, so a
+replaced photo gets a new URL rather than a stale cached one.
+
+**Local disk** is the other driver, and the default when `S3_BUCKET` is unset. In development
+files go to `public/uploads` and Next serves them directly. In a single-container deployment set
+`UPLOAD_DIR=/data/uploads` on a mounted volume; that puts them outside `public/`, so
+[`/media/[file]`](src/app/media/[file]/route.ts) serves them instead, with range requests so a
+guest can scrub a video rather than download it whole. This ties the app to one container and one
+disk you have to back up yourself, which is why it is not the recommendation.
+
+Nothing above `storage()` knows which driver is active. `saveImage()` and `saveVideo()` return a
+URL either way, and the URL is what lands in the database.
+
+**Old media is cleaned up as it stops being used**, not on a schedule:
+
+- replacing a guest's photo deletes the one it replaced
+- "Remove photo" / "Remove video" deletes the file, not just the reference
+- deleting a guest deletes their photo and video
+- deleting an event deletes its cover, and every guest's media with it
+
+Deletes happen *after* the database write, so a failure leaves an unreferenced file rather than a
+guest page pointing at something that is gone. Pasted YouTube links and anything that does not
+match a key this app generated are skipped, so cleanup can never reach outside its own bucket.
+There is no periodic sweep for orphans; at the volume this app writes, an occasional stray object
+costs a fraction of a cent and a sweep is a job scheduler nobody has to run.
+
+## Photos and video: what's allowed
+
+Enforced twice. The browser checks first — and for photos, fixes the problem rather than
+complaining — so a host on venue wifi is not uploading 12MB to be told no. The server checks again
+in [`src/lib/uploads.ts`](src/lib/uploads.ts), because a form can be posted without ever running
+the browser code. Limits live in one place,
+[`src/lib/upload-limits.ts`](src/lib/upload-limits.ts).
+
+| Limit | Value | Why |
+| --- | --- | --- |
+| Photo, on the wire | 15MB | A 48MP phone photo is 8–14MB as JPEG. Accepts anything a phone makes; refuses a RAW file. |
+| Photo, before the browser gives up | 40MB | Under this, an oversized photo is silently downscaled rather than rejected. Past it, it isn't a photograph. |
+| Photo, decoded | 50 megapixels | File size is not a bound on decode cost. A small file can be gigabytes of pixels; this refuses it before allocating them. |
+| Photo, stored | 2000px on the longest edge, WebP q80 | The guest page shows a photo at 608 CSS px and a printed card needs ~1000px at 300dpi. 2000px covers a 3× retina phone and print. |
+| Video | 50MB | About a minute of 1080p phone video — the length these messages actually are. Longer belongs on YouTube, pasted as a link. |
+
+Every image is re-encoded server-side regardless of what arrived. That normalises HEIC and 48MP
+JPEG into one format the guest page can render, applies the EXIF rotation so portrait photos are
+not sideways, and **drops EXIF**, so the GPS coordinates of someone's house do not ship inside a
+wedding photo. A typical phone photo lands at 150–350KB, twenty to forty times smaller than it
+started.
+
+Video is stored exactly as uploaded. Transcoding needs ffmpeg and turns saving a form into a job
+queue with workers to run it; the size cap is what makes that unnecessary.
 
 ## How the pieces fit
 
@@ -94,9 +207,13 @@ src/app/g/[code]/page.tsx                     what a guest sees after scanning
 src/app/api/qr/[code]/route.ts                PNG + SVG codes, any size
 src/app/admin/                                dashboard: events, guests, media, print sheet
 src/app/admin/events/[id]/cards/page.tsx      four table cards to an A4 sheet
-src/lib/events.ts                             occasions and their tibeb thread colours
-src/lib/uploads.ts                            where photos and videos land
+src/app/admin/media-inputs.tsx                browser-side checks and photo downscaling
+src/lib/events.ts                             default occasions and their tibeb thread colours
+src/lib/upload-limits.ts                      every size limit, in one place
+src/lib/uploads.ts                            validation, image processing, cleanup
+src/lib/storage.ts                            local disk or S3-compatible bucket
 prisma/schema.prisma                          Event and Guest
+prisma/migrations/                            applied by npm run start:prod on deploy
 ```
 
 **Events hold the fallbacks, guests hold the exceptions.** Write one thank-you message on the
@@ -109,19 +226,21 @@ card can be read out loud and never opens the wrong page.
 ## Design
 
 The guest page is a cotton-white card lying on a dark table, edged with a **tibeb** band — the
-woven border of a netela — rendered in CSS from three thread colours. Each occasion is assigned
-its own threads in `src/lib/events.ts`, so one stylesheet dresses a wedding and a graduation
-differently. The band recurs as the divider between sections; it's the only ornament on the page.
+woven border of a netela — rendered in CSS from three thread colours. Each occasion carries a
+default set of threads in `src/lib/events.ts` and any event can override them from the dashboard,
+so one stylesheet dresses a wedding, a graduation and something nobody has thought of yet. The
+band recurs as the divider between sections; it's the only ornament on the page.
 
 The dashboard is deliberately plain by contrast: hairline rules, mono labels, dense tables. One is
 a keepsake, the other is a tool.
 
 ## Before this goes live
 
-- [ ] Give each host their own login if more than one client uses the dashboard — today it's a
-      single shared `ADMIN_PASSWORD`.
-- [ ] Move uploads off local disk. `saveUpload()` in `src/lib/uploads.ts` is the only function that
-      writes files; point it at S3 or Cloudinary and the `/media` route can go away with it.
+- [ ] Give each host their own login if clients will use the dashboard directly — today it's a
+      single shared `ADMIN_PASSWORD` and every host can see every other host's guest list.
 - [ ] Move off SQLite to Postgres before any event large enough that guests scan simultaneously.
 - [ ] Guest pages are unlisted but public — anyone with a code can open one. If a host wants a card
       to stop working after the event, add an expiry check in `src/app/g/[code]/page.tsx`.
+- [ ] Every scan writes a row, so link previews and crawlers inflate the counters. `X-Robots-Tag`
+      keeps guest pages out of search results, but a messaging app that unfurls a link still counts
+      as a scan.

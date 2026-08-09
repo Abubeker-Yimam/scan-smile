@@ -1,63 +1,180 @@
 import { randomBytes } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
+import sharp from "sharp";
+import { keyFromUrl, storage } from "@/lib/storage";
+import {
+  IMAGE_MAX_BYTES,
+  IMAGE_MAX_EDGE,
+  IMAGE_MAX_PIXELS,
+  IMAGE_QUALITY,
+  VIDEO_MAX_BYTES,
+  formatBytes,
+} from "@/lib/upload-limits";
 
-/**
- * Where guest photos and videos live.
- *
- * In development this is `public/uploads`, which Next serves directly. In
- * production it points at a mounted volume (UPLOAD_DIR=/data/uploads) so files
- * outlive the container — anything outside `public/` is served by the /media
- * route instead.
- */
-export const UPLOAD_DIR =
-  process.env.UPLOAD_DIR ?? path.join(process.cwd(), "public", "uploads");
+export { UPLOAD_DIR } from "@/lib/storage";
 
-/** True when uploads land somewhere Next can serve as a static asset. */
-const servedStatically = !process.env.UPLOAD_DIR;
+export class UploadError extends Error {}
 
-const ALLOWED: Record<string, string> = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-  "image/heic": ".heic",
+const IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
+
+const VIDEO_TYPES: Record<string, string> = {
   "video/mp4": ".mp4",
   "video/quicktime": ".mov",
   "video/webm": ".webm",
 };
 
-const MAX_BYTES = 60 * 1024 * 1024;
+function key(extension: string): string {
+  return `${Date.now().toString(36)}-${randomBytes(5).toString("hex")}${extension}`;
+}
 
-export class UploadError extends Error {}
+/** Narrows a form field to an actual file with bytes in it. */
+function uploaded(file: FormDataEntryValue | null): file is File {
+  return file !== null && typeof file !== "string" && file.size > 0;
+}
 
 /**
- * Writes an uploaded photo or video to disk and returns the URL path to store
- * on the guest. Returns null when the form field was left empty.
+ * Stores an uploaded photo and returns its URL, or null when the field was left
+ * empty.
  *
- * Local disk is the v1 store — swap this one function for S3 or Cloudinary and
- * nothing else in the app has to change.
+ * The browser downscales before sending (see `admin/media-inputs.tsx`), but that is a
+ * courtesy to the guest's data plan, not a control — a form can be posted
+ * without it. Every limit is enforced again here, and this is the enforcement
+ * that counts.
+ *
+ * Whatever arrives is re-encoded to WebP at a bounded size. That normalises
+ * HEIC and 48MP JPEGs into one format the guest page can render, and it drops
+ * EXIF along the way, so the GPS coordinates of someone's home do not ship
+ * inside a wedding photo.
  */
-export async function saveUpload(file: FormDataEntryValue | null): Promise<string | null> {
-  if (!file || typeof file === "string") return null;
-  if (file.size === 0) return null;
+export async function saveImage(file: FormDataEntryValue | null): Promise<string | null> {
+  if (!uploaded(file)) return null;
 
-  if (file.size > MAX_BYTES) {
+  if (file.size > IMAGE_MAX_BYTES) {
     throw new UploadError(
-      `${file.name} is ${(file.size / 1024 / 1024).toFixed(0)}MB. The limit is 60MB.`
+      `${file.name} is ${formatBytes(file.size)}. Photos have to be under ` +
+        `${formatBytes(IMAGE_MAX_BYTES)} — try again from your phone's photo library, ` +
+        `which sends a smaller copy.`
     );
   }
 
-  const extension = ALLOWED[file.type];
+  if (file.type && !IMAGE_TYPES.has(file.type)) {
+    throw new UploadError(
+      `${file.name} is a ${file.type} file. Photos have to be JPG, PNG, WebP or HEIC.`
+    );
+  }
+
+  const input = Buffer.from(await file.arrayBuffer());
+
+  // `limitInputPixels` makes sharp refuse a decompression bomb before it
+  // allocates the pixel buffer, rather than after the container is out of memory.
+  const image = sharp(input, { limitInputPixels: IMAGE_MAX_PIXELS, failOn: "error" });
+
+  let width: number | undefined;
+  let height: number | undefined;
+  try {
+    ({ width, height } = await image.metadata());
+  } catch {
+    throw new UploadError(
+      `${file.name} could not be read as an image. If it came from an iPhone, ` +
+        `open it once in Photos and share it as JPEG.`
+    );
+  }
+
+  if (!width || !height) {
+    throw new UploadError(`${file.name} has no readable dimensions.`);
+  }
+  if (width * height > IMAGE_MAX_PIXELS) {
+    throw new UploadError(
+      `${file.name} is ${width}×${height}, which is larger than this can process. ` +
+        `Resize it below ${Math.round(IMAGE_MAX_PIXELS / 1_000_000)} megapixels and try again.`
+    );
+  }
+
+  let output: Buffer;
+  try {
+    output = await image
+      // `rotate()` with no argument applies the EXIF orientation, then the tag
+      // is dropped with the rest of the metadata — without it, portrait phone
+      // photos land on their side.
+      .rotate()
+      .resize({
+        width: IMAGE_MAX_EDGE,
+        height: IMAGE_MAX_EDGE,
+        fit: "inside",
+        // Never upscale: a small photo stays small rather than being blown up
+        // into a soft 2000px version of itself.
+        withoutEnlargement: true,
+      })
+      .webp({ quality: IMAGE_QUALITY })
+      .toBuffer();
+  } catch {
+    throw new UploadError(
+      `${file.name} could not be processed. If it is a HEIC photo, share it as ` +
+        `JPEG from Photos and upload that instead.`
+    );
+  }
+
+  const name = key(".webp");
+  await storage().put(name, output, "image/webp");
+  return storage().urlFor(name);
+}
+
+/**
+ * Stores an uploaded video and returns its URL, or null when the field was left
+ * empty.
+ *
+ * Videos are stored exactly as uploaded. Transcoding needs ffmpeg and turns a
+ * form save into a job queue, which is a larger machine than this app is; the
+ * size cap is what keeps that unnecessary.
+ */
+export async function saveVideo(file: FormDataEntryValue | null): Promise<string | null> {
+  if (!uploaded(file)) return null;
+
+  if (file.size > VIDEO_MAX_BYTES) {
+    throw new UploadError(
+      `${file.name} is ${formatBytes(file.size)}. Videos have to be under ` +
+        `${formatBytes(VIDEO_MAX_BYTES)} — that is about a minute of phone video. ` +
+        `For anything longer, upload it to YouTube and paste the link instead.`
+    );
+  }
+
+  const extension = VIDEO_TYPES[file.type];
   if (!extension) {
     throw new UploadError(
-      `${file.name} is a ${file.type || "unrecognised"} file. Use JPG, PNG, WebP, MP4, MOV or WebM.`
+      `${file.name} is a ${file.type || "unrecognised"} file. Videos have to be MP4, MOV or WebM.`
     );
   }
 
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  const filename = `${Date.now().toString(36)}-${randomBytes(5).toString("hex")}${extension}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  const name = key(extension);
+  await storage().put(name, Buffer.from(await file.arrayBuffer()), file.type);
+  return storage().urlFor(name);
+}
 
-  return servedStatically ? `/uploads/${filename}` : `/media/${filename}`;
+/**
+ * Removes a stored file, given the URL held on an event or guest.
+ *
+ * Safe to call with anything a media field might hold: a pasted YouTube link,
+ * a seeded placeholder, null. Only URLs matching a key this app generated are
+ * acted on, and a delete that fails is swallowed — an orphaned object costs a
+ * fraction of a cent, while a delete that throws would abort the surrounding
+ * database write and leave a guest pointing at a file that is already gone.
+ */
+export async function deleteUpload(url: string | null | undefined): Promise<void> {
+  const name = keyFromUrl(url);
+  if (!name) return;
+  try {
+    await storage().remove(name);
+  } catch {
+    // Intentionally ignored; see above.
+  }
+}
+
+/** Removes several stored files, ignoring any that are not ours. */
+export async function deleteUploads(urls: Array<string | null | undefined>): Promise<void> {
+  await Promise.all(urls.map(deleteUpload));
 }

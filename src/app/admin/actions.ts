@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { generateCode } from "@/lib/codes";
-import { saveUpload, UploadError } from "@/lib/uploads";
+import { parseThreads } from "@/lib/events";
+import { deleteUpload, deleteUploads, saveImage, saveVideo, UploadError } from "@/lib/uploads";
 
 export type ActionState = { error?: string; ok?: string };
 
@@ -23,6 +24,25 @@ function parseDate(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+/**
+ * The custom palette, or an error the host can act on.
+ *
+ * Three hex colours or nothing — a half-filled set would render a band with a
+ * missing thread, so it is refused rather than silently completed.
+ */
+function readThreads(form: FormData): { threads: string | null } | { error: string } {
+  const value = optional(form, "themeThreads");
+  if (!value) return { threads: null };
+  if (!parseThreads(value)) {
+    return {
+      error:
+        "Custom colours need three hex codes separated by commas, like " +
+        "#8E1F2F, #1E5A46, #D4A24C. Leave the field empty to use the occasion's own colours.",
+    };
+  }
+  return { threads: value };
+}
+
 /** Codes are unique across every event, so a card can never open the wrong page. */
 async function uniqueCode(): Promise<string> {
   for (let attempt = 0; attempt < 12; attempt++) {
@@ -39,6 +59,9 @@ export async function createEvent(_prev: ActionState, form: FormData): Promise<A
   if (!title) return { error: "Give the event a name — guests never see it, but you will." };
   if (!hostNames) return { error: "Add the host names. They sign every guest's message." };
 
+  const threads = readThreads(form);
+  if ("error" in threads) return { error: threads.error };
+
   const event = await db.event.create({
     data: {
       title,
@@ -46,6 +69,8 @@ export async function createEvent(_prev: ActionState, form: FormData): Promise<A
       kind: text(form, "kind") || "WEDDING",
       eventDate: parseDate(text(form, "eventDate")),
       venue: optional(form, "venue"),
+      eyebrow: optional(form, "eyebrow"),
+      themeThreads: threads.threads,
       defaultMessage: optional(form, "defaultMessage"),
     },
   });
@@ -59,9 +84,18 @@ export async function updateEvent(_prev: ActionState, form: FormData): Promise<A
   const hostNames = text(form, "hostNames");
   if (!title || !hostNames) return { error: "Event name and host names are both required." };
 
-  let coverImageUrl: string | null | undefined;
+  const threads = readThreads(form);
+  if ("error" in threads) return { error: threads.error };
+
+  const existing = await db.event.findUnique({
+    where: { id },
+    select: { coverImageUrl: true },
+  });
+  if (!existing) return { error: "That event no longer exists." };
+
+  let coverImageUrl: string | null = null;
   try {
-    coverImageUrl = await saveUpload(form.get("coverImage"));
+    coverImageUrl = await saveImage(form.get("coverImage"));
   } catch (error) {
     if (error instanceof UploadError) return { error: error.message };
     throw error;
@@ -75,11 +109,17 @@ export async function updateEvent(_prev: ActionState, form: FormData): Promise<A
       kind: text(form, "kind") || "WEDDING",
       eventDate: parseDate(text(form, "eventDate")),
       venue: optional(form, "venue"),
+      eyebrow: optional(form, "eyebrow"),
+      themeThreads: threads.threads,
       defaultMessage: optional(form, "defaultMessage"),
       defaultVideoUrl: optional(form, "defaultVideoUrl"),
       ...(coverImageUrl ? { coverImageUrl } : {}),
     },
   });
+
+  // Only once the row points at the new file, so a failure here leaves an
+  // orphan rather than a broken card.
+  if (coverImageUrl) await deleteUpload(existing.coverImageUrl);
 
   revalidatePath(`/admin/events/${id}`);
   return { ok: "Event saved." };
@@ -87,7 +127,26 @@ export async function updateEvent(_prev: ActionState, form: FormData): Promise<A
 
 export async function deleteEvent(form: FormData) {
   const id = text(form, "id");
+
+  // Guests cascade in the database, but their files do not — collect them while
+  // the rows still exist.
+  const event = await db.event.findUnique({
+    where: { id },
+    select: {
+      coverImageUrl: true,
+      guests: { select: { photoUrl: true, videoUrl: true } },
+    },
+  });
+
   await db.event.delete({ where: { id } });
+
+  if (event) {
+    await deleteUploads([
+      event.coverImageUrl,
+      ...event.guests.flatMap((guest) => [guest.photoUrl, guest.videoUrl]),
+    ]);
+  }
+
   revalidatePath("/admin");
   redirect("/admin");
 }
@@ -150,18 +209,24 @@ export async function updateGuest(_prev: ActionState, form: FormData): Promise<A
   const name = text(form, "name");
   if (!name) return { error: "A guest needs a name." };
 
+  const existing = await db.guest.findUnique({
+    where: { id },
+    select: { photoUrl: true, videoUrl: true },
+  });
+  if (!existing) return { error: "That guest no longer exists." };
+
   let photoUrl: string | null = null;
   let videoUrl: string | null = null;
   try {
-    photoUrl = await saveUpload(form.get("photo"));
-    videoUrl = await saveUpload(form.get("video"));
+    photoUrl = await saveImage(form.get("photo"));
+    videoUrl = await saveVideo(form.get("video"));
   } catch (error) {
     if (error instanceof UploadError) return { error: error.message };
     throw error;
   }
 
   // A pasted link wins only when no file was uploaded in the same save.
-  const linkedVideo = optional(form, "videoUrl");
+  const nextVideo = videoUrl ?? optional(form, "videoUrl");
 
   await db.guest.update({
     where: { id },
@@ -172,9 +237,16 @@ export async function updateGuest(_prev: ActionState, form: FormData): Promise<A
       seat: optional(form, "seat"),
       message: optional(form, "message"),
       ...(photoUrl ? { photoUrl } : {}),
-      ...(videoUrl ? { videoUrl } : { videoUrl: linkedVideo }),
+      videoUrl: nextVideo,
     },
   });
+
+  // Replacing a photo, or replacing an uploaded video with a different file or
+  // a pasted link, strands the old file. Drop it now that nothing points at it.
+  if (photoUrl) await deleteUpload(existing.photoUrl);
+  if (existing.videoUrl && existing.videoUrl !== nextVideo) {
+    await deleteUpload(existing.videoUrl);
+  }
 
   revalidatePath(`/admin/events/${eventId}`);
   revalidatePath(`/admin/events/${eventId}/guests/${id}`);
@@ -185,17 +257,34 @@ export async function clearGuestMedia(form: FormData) {
   const id = text(form, "id");
   const eventId = text(form, "eventId");
   const field = text(form, "field");
+
+  const existing = await db.guest.findUnique({
+    where: { id },
+    select: { photoUrl: true, videoUrl: true },
+  });
+
   await db.guest.update({
     where: { id },
     data: field === "photo" ? { photoUrl: null } : { videoUrl: null },
   });
+
+  await deleteUpload(field === "photo" ? existing?.photoUrl : existing?.videoUrl);
+
   revalidatePath(`/admin/events/${eventId}/guests/${id}`);
 }
 
 export async function deleteGuest(form: FormData) {
   const id = text(form, "id");
   const eventId = text(form, "eventId");
+
+  const existing = await db.guest.findUnique({
+    where: { id },
+    select: { photoUrl: true, videoUrl: true },
+  });
+
   await db.guest.delete({ where: { id } });
+  await deleteUploads([existing?.photoUrl, existing?.videoUrl]);
+
   revalidatePath(`/admin/events/${eventId}`);
   redirect(`/admin/events/${eventId}`);
 }
