@@ -3,8 +3,15 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  /// Pooled connection, used while serving. On a pooler running in transaction
+  /// mode this must carry ?pgbouncer=true — Prisma's prepared statements do not
+  /// survive a connection being handed to someone else between queries.
   url      = env("DATABASE_URL")
+  /// Unpooled connection, used only by `prisma migrate`. Migrations take locks
+  /// and run statements a transaction pooler will not pass through. On a host
+  /// with no pooler, set this to the same value as DATABASE_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 /// One booked celebration. The host configures it once; every guest card
