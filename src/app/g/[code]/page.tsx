@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
@@ -8,16 +9,30 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ code: string }> };
 
-async function loadGuest(code: string) {
+/**
+ * Next calls generateMetadata and the page itself for one request, and both
+ * need the same guest. Wrapped in cache(), the second call reads the first
+ * one's result instead of asking Postgres again: one round trip per scan
+ * rather than two, and half as many chances for a shaky link to spoil it.
+ */
+const loadGuest = cache(async (code: string) => {
   return db.guest.findUnique({
     where: { code: code.toUpperCase() },
     include: { event: true },
   });
-}
+});
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { code } = await params;
-  const guest = await loadGuest(code);
+  // A title is not worth failing a request over. Letting this throw meant an
+  // unreachable database surfaced here, in metadata, rather than in the page
+  // that can say something useful about it.
+  //
+  // Note this does not save the round trip: cache() below shares a *fulfilled*
+  // result, but a rejected one is not kept, so the page tries again. That is
+  // the right behaviour — it is also why the connect timeout has to stay
+  // modest, since an unreachable database is paid for twice.
+  const guest = await loadGuest(code).catch(() => null);
   if (!guest) return { title: "Scan & Smile" };
   return {
     title: `Welcome, ${guest.name} — ${guest.event.title}`,
@@ -30,15 +45,23 @@ export default async function GuestPage({ params }: Params) {
   const guest = await loadGuest(code);
   if (!guest) notFound();
 
+  // Counting the scan is bookkeeping for the host. The guest is standing at a
+  // table with their phone out, and their message matters more than the tally —
+  // so a counter that fails to write is logged and stepped over, never a reason
+  // to show an error page to someone who scanned a card correctly.
   const now = new Date();
-  await db.guest.update({
-    where: { id: guest.id },
-    data: {
-      scanCount: { increment: 1 },
-      lastScannedAt: now,
-      ...(guest.firstScannedAt ? {} : { firstScannedAt: now }),
-    },
-  });
+  try {
+    await db.guest.update({
+      where: { id: guest.id },
+      data: {
+        scanCount: { increment: 1 },
+        lastScannedAt: now,
+        ...(guest.firstScannedAt ? {} : { firstScannedAt: now }),
+      },
+    });
+  } catch (error) {
+    console.error(`Could not record the scan for ${guest.code}:`, error);
+  }
 
   const { event } = guest;
   const kind = eventTheme(event);

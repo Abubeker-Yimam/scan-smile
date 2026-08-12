@@ -7,11 +7,32 @@ export const dynamic = "force-dynamic";
 
 const DEMO_CODE = "DEMO247";
 
+/**
+ * The sample card is an illustration, not information. Nobody arriving at this
+ * page needs it to render, so a database that is briefly unreachable costs a
+ * visitor one figure rather than the whole page — which is what happened
+ * before: a decorative query took down the front door.
+ *
+ * The two empty cases are told apart because they call for opposite things. No
+ * demo guest is a setup step. A database that will not answer is a wait.
+ */
+async function loadDemo() {
+  try {
+    return {
+      demo: await db.guest.findUnique({
+        where: { code: DEMO_CODE },
+        select: { code: true, name: true },
+      }),
+      unavailable: false,
+    };
+  } catch (error) {
+    console.error("Home page could not load the sample card:", error);
+    return { demo: null, unavailable: true };
+  }
+}
+
 export default async function HomePage() {
-  const demo = await db.guest.findUnique({
-    where: { code: DEMO_CODE },
-    select: { code: true, name: true },
-  });
+  const { demo, unavailable } = await loadDemo();
 
   return (
     <main className="min-h-dvh bg-ink text-cotton">
@@ -99,8 +120,14 @@ export default async function HomePage() {
             </figure>
           ) : (
             <p className="border border-dashed border-cotton/20 px-6 py-10 text-center font-body text-cotton/60">
-              Run <code className="font-mono text-gold">npm run setup</code> to load the sample
-              event and see a live card here.
+              {unavailable ? (
+                <>The sample card is taking a moment to load. Refresh in a few seconds.</>
+              ) : (
+                <>
+                  Run <code className="font-mono text-gold">npm run setup</code> to load the sample
+                  event and see a live card here.
+                </>
+              )}
             </p>
           )}
         </section>
