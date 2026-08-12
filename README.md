@@ -77,6 +77,74 @@ whole dashboard. Every host who books an event uses the same password and can se
 host's guest list. That is fine while you run the events yourself and wrong the moment clients log
 in directly.
 
+## Printable QR inserts
+
+The A4 sheet in `/admin` is for cards you cut and stand up yourself. The other option is an
+**insert**: an arch-shaped card, gold on black, that slides into an acrylic stand at each place
+setting. Those are generated as files and sent to a printer, one per guest.
+
+```bash
+node scripts/insert-card/generate.mjs --from-event <eventId>      # every guest, codes and all
+node scripts/insert-card/generate.mjs --names scripts/insert-card/guests.example.txt
+node scripts/insert-card/generate.mjs --name Lina --url https://example.com/g/DEMO247 --guides
+node scripts/insert-card/generate.mjs --help                      # every option
+```
+
+Files land in `out/inserts` as `01-lina.pdf`, `01-lina.png`, and so on. `--from-event` reads each
+guest's real code from the database, which is the only way to avoid transcribing two hundred of
+them by hand.
+
+**Call `node` directly, not `npm run inserts --`.** The npm alias exists and works from bash, but
+on Windows npm's `.cmd` shim quietly eats every `--flag` and forwards only the values, so
+`npm run inserts -- --name Lina --width 90` arrives as `["Lina", "90"]` and you get a default card
+with no warning. The `node` form behaves identically in PowerShell and bash.
+
+| | Default | |
+| --- | --- | --- |
+| `--width` / `--height` | 100 × 140mm | Trim size. The layout is proportional, so other sizes scale rather than break. |
+| `--bleed` | 3mm | Artwork past the trim on every side. |
+| `--dpi` | 300 | For the PNG. The PDF is vector and has no resolution. |
+| `--format` | `pdf,png` | Add or drop `svg`. |
+| `--footer` | — | `instagram:@handle`, repeatable, up to two. Stands in for the thank-you lines. |
+| `--guides` | off | Draws the trim line in red, for proofing. Never for print. |
+
+**The bleed is an arch too.** A rectangular bleed on a card that gets trimmed round the dome would
+still show paper on the curve, so the black is drawn as the same arch grown outward by the bleed on
+every side — which, because the dome is a semicircle of radius w/2, is just the arch construction
+at a larger width. Trimming anywhere on the arch line lands in black. The page is trim + bleed with
+no crop marks; marks would have to sit *outside* the bleed, on media this file doesn't include.
+
+**Three formats, for three readers.** The PDF is what a print shop wants: vector, with a subset of
+each typeface embedded, so it sets the same way on their machine as yours. Its page box rounds to
+whole PostScript points, which puts a 100mm trim within 0.2mm — under the tolerance of the guillotine
+that will cut it. The PNG carries 300 DPI in its header, for anyone whose workflow wants a raster.
+The SVG is the editable original.
+
+**Fonts decide whether this looks like the reference.** Nothing is bundled, so the defaults fall
+back through whatever is installed — on Windows that lands on Georgia and French Script MT, which is
+close. For the real thing, download **Great Vibes** and **Cormorant Garamond** and pass them in:
+
+```bash
+node scripts/insert-card/generate.mjs --from-event <id> \
+  --script-file fonts/GreatVibes-Regular.ttf \
+  --serif-file fonts/CormorantGaramond-Medium.ttf
+```
+
+Given a file, the typeface is base64'd into the artwork itself, so the SVG still sets correctly on a
+print shop's machine that has never had either font installed.
+
+**The code prints gold on black, which is an inverted QR.** Current iPhone and Android cameras read
+those; older hardware scanners were only ever specified for dark-on-light. The heart in the middle
+is safe on its own — the codes are generated at error-correction level H, which recovers 30% of the
+symbol, and the heart clears under a tenth. Print one and scan it with the oldest phone at the
+wedding before committing to a run of two hundred. `--qr-invert` gives a conventional dark code on a
+white panel if you would rather not find out.
+
+PDF and PNG need a Chromium-based browser, which is doing the type-setting: Chrome or Edge is found
+automatically, or set `CHROME_PATH`. `--format svg` needs nothing. This is also why fonts are named
+rather than outlined — `sharp` resolves families through fontconfig and falls back *silently*, which
+means a missing script face prints as Georgia and nobody notices until the cards arrive.
+
 ## Deploying
 
 Three moving parts: the app, the database, and the media.
@@ -261,6 +329,9 @@ src/app/g/[code]/page.tsx                     what a guest sees after scanning
 src/app/api/qr/[code]/route.ts                PNG + SVG codes, any size
 src/app/admin/                                dashboard: events, guests, media, print sheet
 src/app/admin/events/[id]/cards/page.tsx      four table cards to an A4 sheet
+scripts/insert-card/artwork.mjs               the arch insert, as an SVG; pure, no I/O
+scripts/insert-card/render.mjs                SVG to press-ready PDF and 300dpi PNG
+scripts/insert-card/generate.mjs              npm run inserts — one file per guest
 src/app/admin/media-inputs.tsx                browser-side checks and photo downscaling
 src/lib/events.ts                             default occasions and their tibeb thread colours
 src/lib/upload-limits.ts                      every size limit, in one place

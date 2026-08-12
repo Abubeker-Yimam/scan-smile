@@ -19,6 +19,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset-scans": "tsx prisma/reset-scans.ts",
     "db:studio": "prisma studio",
+    "inserts": "node scripts/insert-card/generate.mjs",
     "setup": "prisma migrate deploy && tsx prisma/seed.ts"
   },
   "dependencies": {

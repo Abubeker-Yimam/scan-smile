@@ -1,0 +1,13 @@
+# One guest per line. The name is set in script on the card.
+#
+# A second field, after a comma, sets where that guest's QR points:
+#   Name            → the --url template, which needs no {code}
+#   Name,CODE       → the code is substituted into {code} in --url
+#   Name,https://…  → this exact URL, template ignored
+#
+# Blank lines and lines starting with # are skipped.
+
+Lina,ABC1234
+Samuel,TWY6234
+Marta Wolde-Giorgis,QPN9834
+Ato Bekele,HJK4467
