@@ -1,7 +1,8 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { buildCard } from "./artwork.mjs";
+import { fileURLToPath } from "node:url";
+import { buildCard } from "../../src/lib/insert-card/artwork.mjs";
 import { findBrowser, mmToPx, renderCard } from "./render.mjs";
 
 /**
@@ -12,6 +13,32 @@ import { findBrowser, mmToPx, renderCard } from "./render.mjs";
  */
 const ENV_FILE = path.join(process.cwd(), ".env");
 if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
+
+/**
+ * The script face ships with the app (OFL, licence alongside it).
+ *
+ * Naming a family the machine does not have is the one failure here that looks
+ * like success: Chromium silently falls back, and a run of fifty cards comes
+ * out set in Gabriola, which nobody notices until they are printed. Embedding
+ * a known file by default means the flag is for changing the face, not for
+ * getting the right one.
+ *
+ * It lives in public/ because the admin print page serves it to a browser over
+ * @font-face. One file, so the sheet a host prints and the PDF a shop prints
+ * cannot drift apart.
+ */
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const BUNDLED_SCRIPT = path.join(HERE, "..", "..", "public", "fonts", "GreatVibes-Regular.ttf");
+
+function bundledScript() {
+  if (existsSync(BUNDLED_SCRIPT)) return BUNDLED_SCRIPT;
+  process.stdout.write(
+    `The bundled script face is missing from ${path.relative(process.cwd(), BUNDLED_SCRIPT)}, ` +
+      `so names will be set in whatever cursive this machine happens to have. Pass ` +
+      `--script-file to name one.\n\n`
+  );
+  return null;
+}
 
 /**
  * One print-ready insert per guest.
@@ -58,6 +85,7 @@ Look
   --script <stack>      Font stack for the name.
   --serif-file <path>   Embed a .ttf/.otf/.woff2 and use it for the serif.
   --script-file <path>  Embed a .ttf/.otf/.woff2 and use it for the name.
+                        Defaults to the Great Vibes bundled beside this script.
   --name-size <mm>      Cap height of the name. It is shrunk to fit regardless.
 
 Output
@@ -147,7 +175,13 @@ function parseNames(text) {
  */
 async function guestsFromEvent(eventId) {
   const { PrismaClient } = await import("@prisma/client");
-  const db = new PrismaClient();
+  // The unpooled connection, for the same reason migrations use it: this is a
+  // one-shot batch job run from a laptop, not a request being served. A
+  // transaction pooler sized for the web app will happily refuse the one
+  // connection this needs, and refusing it here costs a whole print run.
+  const db = new PrismaClient({
+    datasources: { db: { url: process.env.DIRECT_URL || process.env.DATABASE_URL } },
+  });
   try {
     const event = await db.event.findUnique({
       where: { id: eventId },
@@ -246,7 +280,8 @@ async function main() {
   const faces = [];
   const fonts = {};
   const serifFile = opt("serif-file");
-  const scriptFile = opt("script-file");
+  // --script names a family instead of a file, so it opts out of the bundle.
+  const scriptFile = opt("script-file") ?? (opt("script") ? null : bundledScript());
   if (serifFile) {
     faces.push(await embedFont(serifFile, "Insert Serif"));
     fonts.serif = `'Insert Serif', Georgia, serif`;

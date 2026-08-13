@@ -155,15 +155,17 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   Print — table cards come off an A4 sheet with a scissor grid.
+   Print — guest cards come off an A4 sheet, four up, with a scissor grid.
    --------------------------------------------------------------------------- */
 @media print {
   .no-print {
     display: none !important;
   }
+  /* Two 95mm cards and their gutter need 197mm of the 210. A wider margin than
+     this drops the second column onto a page of its own. */
   @page {
     size: A4;
-    margin: 10mm;
+    margin: 5mm;
   }
   body {
     background: #fff !important;
@@ -172,6 +174,14 @@ body {
   .admin-shell {
     max-width: none !important;
     padding: 0 !important;
+  }
+  /* Four to a page, chosen in the markup rather than left to the paginator —
+     a card split across two sheets is waste paper and a lot of black ink. */
+  .print-sheet {
+    break-after: page;
+  }
+  .print-sheet:last-child {
+    break-after: auto;
   }
   .print-card {
     break-inside: avoid;
