@@ -70,7 +70,7 @@ export default async function GuestPage({ params }: Params) {
   const video = videoUrl ? resolveVideo(videoUrl) : null;
   const photo = guest.photoUrl?.trim() || event.coverImageUrl?.trim() || null;
   const date = formatEventDate(event.eventDate);
-  const seating = [guest.tableName, guest.seat].filter(Boolean).join(" · ");
+  const table = guest.tableName?.trim() || null;
 
   return (
     <main
@@ -191,17 +191,17 @@ export default async function GuestPage({ params }: Params) {
             </div>
           )}
 
-          {(seating || event.venue) && (
+          {(table || event.venue) && (
             <>
               <div className="tibeb-rule mt-10" aria-hidden="true" />
               <dl className="mt-7 flex flex-wrap gap-x-12 gap-y-5">
-                {seating && (
+                {table && (
                   <div>
                     <dt className="font-mono text-[0.65rem] tracking-[0.2em] text-ash uppercase">
-                      Your seat
+                      Your table
                     </dt>
                     <dd className="mt-1.5 font-display text-2xl font-semibold text-coffee">
-                      {seating}
+                      {table}
                     </dd>
                   </div>
                 )}

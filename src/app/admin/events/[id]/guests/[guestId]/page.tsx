@@ -61,7 +61,6 @@ export default async function GuestEditorPage({
                 name: guest.name,
                 honorific: guest.honorific,
                 tableName: guest.tableName,
-                seat: guest.seat,
                 message: guest.message,
                 videoUrl: guest.videoUrl,
               }}
