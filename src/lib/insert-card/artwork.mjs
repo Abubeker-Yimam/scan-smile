@@ -40,14 +40,25 @@ const LAYOUT = {
   tagline: 0.579,
   taglineSize: 0.027,
   taglineTrack: 0.3,
-  dear: 0.664,
   dearSize: 0.046,
-  name: 0.771,
-  // Script faces carry a small x-height for their point size, so the name is
-  // set larger than it looks like it should be to read as the reference does.
-  nameSize: 0.21,
+  // The name is placed by its ink box rather than by a baseline. A script face
+  // draws far outside its point size — loops climb over the word above, tails
+  // drop onto whatever sits below — and a baseline says nothing about either.
+  // These two fractions are the band the drawn name is allowed to fill.
+  nameTop: 0.638,
+  nameBottom: 0.818,
   nameMaxWidth: 0.82,
-  heart: 0.821,
+  // Ink above and below the baseline, as a fraction of font size. Measured off
+  // Great Vibes across A-Z and a-z — 0.861 and 0.400 — and rounded outward for
+  // accents. Not the font's own yMax: that belongs to an ornamental glyph no
+  // name contains, and reserving room for it costs the name a third of its
+  // size. Measured across the alphabet rather than per name on purpose, so
+  // fifty cards carry the name at one size in one place instead of each guest's
+  // own letters deciding where the heart goes.
+  nameInkAbove: 0.92,
+  nameInkBelow: 0.42,
+  // Clear space between that band and the "Dear" above it, and the heart below.
+  nameGap: 0.02,
   heartSize: 0.036,
   thanks: [0.886, 0.929],
   thanksSize: 0.036,
@@ -391,9 +402,17 @@ export function buildCard(config) {
   );
 
   // 6 & 7 — "Dear", and the name it introduces.
+  //
+  // Both this label and the heart below sit against the edges of the name's
+  // band, not against the name itself, so they land in the same place on every
+  // card even when a long name has to be set smaller to fit the width.
+  const nameGap = sw(LAYOUT.nameGap);
+  const inkTop = ty(LAYOUT.nameTop);
+  const inkBottom = name ? ty(LAYOUT.nameBottom) : inkTop;
+
   if (dearLabel) {
     body.push(
-      centeredText(cx, ty(LAYOUT.dear), dearLabel, {
+      centeredText(cx, inkTop - nameGap, dearLabel, {
         size: sw(LAYOUT.dearSize),
         family: serif,
         fill: goldFill,
@@ -402,17 +421,23 @@ export function buildCard(config) {
   }
 
   if (name) {
-    const base = nameSize ?? sw(LAYOUT.nameSize);
+    const inkSpan = LAYOUT.nameInkAbove + LAYOUT.nameInkBelow;
+    // As large as the band allows, then smaller still if the name is long.
+    const fitted = Math.min(nameSize ?? Infinity, (inkBottom - inkTop) / inkSpan);
     const maxWidth = sw(LAYOUT.nameMaxWidth);
-    const estimated = estimateWidth(name, base, 0.42);
-    const size = estimated > maxWidth ? (base * maxWidth) / estimated : base;
-    body.push(
-      centeredText(cx, ty(LAYOUT.name), name, { size, family: script, fill: goldFill })
-    );
+    const estimated = estimateWidth(name, fitted, 0.42);
+    const size = estimated > maxWidth ? (fitted * maxWidth) / estimated : fitted;
+    // A shrunk name keeps the middle of the band rather than hugging its top.
+    const baseline =
+      inkTop + (inkBottom - inkTop - size * inkSpan) / 2 + size * LAYOUT.nameInkAbove;
+    body.push(centeredText(cx, baseline, name, { size, family: script, fill: goldFill }));
   }
 
-  // 8 — the small heart.
-  body.push(heart(cx, ty(LAYOUT.heart), sw(LAYOUT.heartSize), goldFill));
+  // 8 — the small heart, clear of the tail of the name.
+  const heartWidthBelow = sw(LAYOUT.heartSize);
+  body.push(
+    heart(cx, inkBottom + nameGap + heartWidthBelow * 0.459, heartWidthBelow, goldFill)
+  );
 
   // 9 — the closing lines, or the contact rows standing in for them.
   if (footer.length > 0) {

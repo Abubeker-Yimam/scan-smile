@@ -64,7 +64,7 @@ video, printing the cards — is a form in `/admin`.
 | Change the message or video every guest sees | `/admin/events/<id>`, "Event settings" |
 | Name an occasion the list doesn't cover | "Word above the guest's name" |
 | Give an event its own colours | "Card colours" — three hex codes |
-| Print the table cards | "Print table cards", four to an A4 sheet |
+| Print the guest cards | "Print sheet" on the cards page, four arch inserts to an A4 sheet |
 
 The occasion list in [`src/lib/events.ts`](src/lib/events.ts) is a set of defaults, not a fixed
 menu. A host who needs "Mahiber" or a colour scheme matched to their flowers sets the eyebrow and
@@ -120,13 +120,15 @@ whole PostScript points, which puts a 100mm trim within 0.2mm — under the tole
 that will cut it. The PNG carries 300 DPI in its header, for anyone whose workflow wants a raster.
 The SVG is the editable original.
 
-**Fonts decide whether this looks like the reference.** Nothing is bundled, so the defaults fall
-back through whatever is installed — on Windows that lands on Georgia and French Script MT, which is
-close. For the real thing, download **Great Vibes** and **Cormorant Garamond** and pass them in:
+**Fonts decide whether this looks like the reference.** **Great Vibes** ships with the app, at
+[`public/fonts`](public/fonts) under the OFL, and sets the names without being asked — naming a
+family the machine lacks is the failure that looks like success, since the renderer falls back
+silently and nobody notices until fifty cards are printed in Gabriola. The headline still falls
+back to whatever serif is installed, which on Windows is Georgia. For the reference exactly,
+download **Cormorant Garamond** and pass it in:
 
 ```bash
 node scripts/insert-card/generate.mjs --from-event <id> \
-  --script-file fonts/GreatVibes-Regular.ttf \
   --serif-file fonts/CormorantGaramond-Medium.ttf
 ```
 
@@ -328,8 +330,8 @@ src/app/page.tsx                              public page; the hero is a live ca
 src/app/g/[code]/page.tsx                     what a guest sees after scanning
 src/app/api/qr/[code]/route.ts                PNG + SVG codes, any size
 src/app/admin/                                dashboard: events, guests, media, print sheet
-src/app/admin/events/[id]/cards/page.tsx      four table cards to an A4 sheet
-scripts/insert-card/artwork.mjs               the arch insert, as an SVG; pure, no I/O
+src/app/admin/events/[id]/cards/page.tsx      four arch inserts to an A4 sheet, printed from the browser
+src/lib/insert-card/artwork.mjs               the arch insert, as an SVG; pure, no I/O
 scripts/insert-card/render.mjs                SVG to press-ready PDF and 300dpi PNG
 scripts/insert-card/generate.mjs              npm run inserts — one file per guest
 src/app/admin/media-inputs.tsx                browser-side checks and photo downscaling
