@@ -46,7 +46,6 @@ async function main() {
     name: string;
     honorific?: string;
     tableName: string;
-    seat?: string;
     message?: string;
     photoUrl?: string;
   }> = [
@@ -55,7 +54,6 @@ async function main() {
       name: "Bekele Alemu",
       honorific: "Ato",
       tableName: "Table 4",
-      seat: "Seat 2",
       photoUrl: "/uploads/demo-photo.svg",
       message:
         "You have been in our corner since the very first day, Bekele. Thank you for standing with us again today — this table would not be the same without you.",

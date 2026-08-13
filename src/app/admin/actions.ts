@@ -234,7 +234,6 @@ export async function updateGuest(_prev: ActionState, form: FormData): Promise<A
       name,
       honorific: optional(form, "honorific"),
       tableName: optional(form, "tableName"),
-      seat: optional(form, "seat"),
       message: optional(form, "message"),
       ...(photoUrl ? { photoUrl } : {}),
       videoUrl: nextVideo,

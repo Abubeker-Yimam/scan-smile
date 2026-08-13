@@ -271,7 +271,6 @@ type GuestDefaults = {
   name: string;
   honorific: string | null;
   tableName: string | null;
-  seat: string | null;
   message: string | null;
   videoUrl: string | null;
 };
@@ -300,26 +299,15 @@ export function GuestForm({ guest }: { guest: GuestDefaults }) {
         </label>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <label className="block">
-          <span className={LABEL}>Table</span>
-          <input
-            name="tableName"
-            defaultValue={guest.tableName ?? ""}
-            placeholder="Table 4"
-            className={FIELD}
-          />
-        </label>
-        <label className="block">
-          <span className={LABEL}>Seat</span>
-          <input
-            name="seat"
-            defaultValue={guest.seat ?? ""}
-            placeholder="Seat 2"
-            className={FIELD}
-          />
-        </label>
-      </div>
+      <label className="block">
+        <span className={LABEL}>Table</span>
+        <input
+          name="tableName"
+          defaultValue={guest.tableName ?? ""}
+          placeholder="Table 4"
+          className={FIELD}
+        />
+      </label>
 
       <label className="block">
         <span className={LABEL}>Personal message</span>

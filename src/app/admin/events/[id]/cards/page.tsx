@@ -75,7 +75,6 @@ export default async function CardsPage({ params }: { params: Promise<{ id: stri
                   {guest.tableName && (
                     <p className="mt-[4mm] font-mono text-[8pt] tracking-[0.18em] text-ash uppercase">
                       {guest.tableName}
-                      {guest.seat && ` · ${guest.seat}`}
                     </p>
                   )}
                 </div>

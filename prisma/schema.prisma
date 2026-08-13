@@ -56,7 +56,6 @@ model Guest {
   /// Ato, Woizero, Dr., Mr. — printed above the name.
   honorific String?
   tableName String?
-  seat      String?
 
   /// Overrides the event defaults when set.
   message  String?
