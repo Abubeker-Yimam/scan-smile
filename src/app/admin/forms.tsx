@@ -56,7 +56,6 @@ type EventDefaults = {
   eyebrow?: string | null;
   themeThreads?: string | null;
   defaultMessage?: string | null;
-  defaultVideoUrl?: string | null;
 };
 
 export function EventForm({ event }: { event?: EventDefaults }) {
@@ -135,16 +134,6 @@ export function EventForm({ event }: { event?: EventDefaults }) {
 
       {isEdit && (
         <>
-          <label className="block">
-            <span className={LABEL}>Video every guest sees</span>
-            <input
-              name="defaultVideoUrl"
-              defaultValue={event?.defaultVideoUrl ?? ""}
-              placeholder="https://youtu.be/… or /uploads/thank-you.mp4"
-              className={FIELD}
-            />
-          </label>
-
           <label className="block">
             <span className={LABEL}>Cover photo</span>
             <ImageInput
