@@ -44,15 +44,23 @@ export default async function SiteLayout({
   return (
     <div className="flex min-h-dvh flex-col bg-ink text-cotton">
       <header className="border-b border-cotton/10">
-        <div className="mx-auto flex max-w-[64rem] flex-wrap items-center gap-x-8 gap-y-3 px-6 py-5">
+        {/* On a phone this is two rows — the name, the dashboard and the
+            language you read it in, then the page links underneath. Four
+            items sharing one wrapping row fitted, but only just, and in
+            Amharic the labels are long enough to leave nothing between them. */}
+        <div className="mx-auto flex max-w-[64rem] flex-wrap items-center gap-x-5 gap-y-3 px-5 py-4 sm:gap-x-8 sm:px-6 sm:py-5">
           <Link href={`/${lang}`} className="font-display text-lg font-bold tracking-tight">
             Scan &amp; Smile
           </Link>
-          <SiteNav items={nav} navLabel={d.nav.label} />
+          <SiteNav
+            items={nav}
+            navLabel={d.nav.label}
+            className="order-last w-full sm:order-none sm:w-auto"
+          />
           {/* The language sits furthest right, past the dashboard link: it is
               the control a visitor looks for in the corner, and the one they
               need before they can read anything else on the page. */}
-          <div className="ml-auto flex items-center gap-6">
+          <div className="ml-auto flex items-center gap-5 sm:gap-6">
             <Link
               href="/admin"
               className="font-mono text-[0.62rem] tracking-[0.18em] text-cotton/60 uppercase underline underline-offset-4 hover:text-gold"
@@ -67,7 +75,7 @@ export default async function SiteLayout({
       <div className="flex-1">{children}</div>
 
       <footer className="mt-24 border-t border-cotton/10">
-        <div className="mx-auto grid max-w-[64rem] gap-10 px-6 py-12 sm:grid-cols-[1.2fr_1fr_1fr]">
+        <div className="mx-auto grid max-w-[64rem] gap-10 px-5 py-10 sm:grid-cols-[1.2fr_1fr_1fr] sm:px-6 sm:py-12">
           <div>
             <p className="font-display text-lg font-bold tracking-tight">Scan &amp; Smile</p>
             <p className="mt-2 max-w-[22rem] font-body text-sm text-cotton/60">{d.footer.blurb}</p>
@@ -137,7 +145,7 @@ export default async function SiteLayout({
           </div>
         </div>
 
-        <div className="mx-auto max-w-[64rem] px-6 pb-10">
+        <div className="mx-auto max-w-[64rem] px-5 pb-10 sm:px-6">
           <p className="font-mono text-[0.58rem] tracking-[0.2em] text-cotton/35 uppercase">
             © {year} Scan &amp; Smile · {CONTACT.city[lang]}
           </p>

@@ -64,7 +64,7 @@ export default async function ContactPage({ params }: LangParams) {
   }));
 
   return (
-    <main className="mx-auto max-w-[64rem] px-6 py-12 sm:py-20">
+    <main className="mx-auto max-w-[64rem] px-5 py-10 sm:px-6 sm:py-20">
       <header className="max-w-[38rem]">
         <p className="font-mono text-[0.62rem] tracking-[0.2em] text-gold uppercase">{t.eyebrow}</p>
         <h1
@@ -76,7 +76,7 @@ export default async function ContactPage({ params }: LangParams) {
         <p className="mt-7 font-body text-lg text-cotton/70">{t.lede}</p>
       </header>
 
-      <div className="mt-16 grid gap-14 lg:grid-cols-[1.4fr_1fr]">
+      <div className="mt-12 grid gap-12 sm:mt-16 sm:gap-14 lg:grid-cols-[1.4fr_1fr]">
         <section>
           <h2 className="font-mono text-[0.6rem] tracking-[0.2em] text-cotton/45 uppercase">
             {t.formHeading}
