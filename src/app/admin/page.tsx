@@ -16,8 +16,28 @@ export default async function AdminHome() {
     },
   });
 
+  // Someone who wrote from the contact page is waiting on a person, not on the
+  // app. Surfacing the count on the first screen after signing in is the whole
+  // difference between an inbox and a table nobody opens.
+  const waiting = await db.inquiry.count({ where: { handled: false } });
+
   return (
     <div className="space-y-14">
+      {waiting > 0 && (
+        <Link
+          href="/admin/inbox"
+          className="flex flex-wrap items-center gap-x-4 gap-y-2 border border-coffee/25 bg-white px-5 py-4 transition-colors hover:bg-cotton-2"
+        >
+          <span className="tibeb h-2 w-10 shrink-0" aria-hidden="true" />
+          <span className="font-body">
+            {waiting === 1 ? "One message is" : `${waiting} messages are`} waiting for an answer.
+          </span>
+          <span className="ml-auto font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4">
+            Open the inbox
+          </span>
+        </Link>
+      )}
+
       <section>
         <div className="flex flex-wrap items-baseline justify-between gap-4">
           <h1 className="font-display text-3xl font-bold tracking-tight">Events</h1>

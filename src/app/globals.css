@@ -38,6 +38,21 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Ethiopic typography.
+
+   The mono labels through this design are letter-spaced small caps, which is a
+   Latin idiom: ግዕዝ has no case for `uppercase` to reach, and tracking pushes
+   its syllables apart until the word stops looking like a word. The tight
+   tracking on display headings is the same problem from the other end. Both
+   are switched off for Amharic — a little Latin inside an Amharic page loses
+   its tracking too, which is a smaller price than broken Ethiopic.
+   --------------------------------------------------------------------------- */
+:lang(am) .font-mono,
+:lang(am) .font-display {
+  letter-spacing: normal;
+}
+
+/* ---------------------------------------------------------------------------
    Tibeb — the woven band.
    Three threads crossing on a loom: a warp ground, a diagonal weft lattice,
    and a highlight running the length of the band. Colors come from the event

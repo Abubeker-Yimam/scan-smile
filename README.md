@@ -61,7 +61,7 @@ video, printing the cards — is a form in `/admin`.
 | Book an event | `/admin`, "Book a new event" |
 | Add guests, one at a time or a pasted list | `/admin/events/<id>` |
 | Write a guest's message, add their photo and video | `/admin/events/<id>/guests/<guestId>` |
-| Change the message or video every guest sees | `/admin/events/<id>`, "Event settings" |
+| Change the message every guest sees | `/admin/events/<id>`, "Event settings" |
 | Name an occasion the list doesn't cover | "Word above the guest's name" |
 | Give an event its own colours | "Card colours" — three hex codes |
 | Print the guest cards | "Print sheet" on the cards page, four arch inserts to an A4 sheet |
@@ -76,6 +76,59 @@ The one thing still hard-coded is **who can log in**: a single shared `ADMIN_PAS
 whole dashboard. Every host who books an event uses the same password and can see every other
 host's guest list. That is fine while you run the events yourself and wrong the moment clients log
 in directly.
+
+## The public site
+
+Four pages, all inside `src/app/(site)/` and sharing one header and footer.
+
+| Page | What it is for |
+| --- | --- |
+| `/{lang}` | The hero card, woven live. Picking an occasion swaps its three threads, eyebrow and sample details, so one control shows the whole range. |
+| `/{lang}/how-it-works` | The host's walkthrough — six steps, what a guest does, and the questions people ask before booking. |
+| `/{lang}/about` | Who you are. A draft in your voice; the story is marked TODO because it is the one page nobody else can write. |
+| `/{lang}/contact` | A form that lands in the dashboard, beside tap-to-open email, phone, Telegram and Instagram links. |
+
+### Three languages
+
+English, **አማርኛ** and **Afaan Oromoo**, chosen from the header and carried in the URL:
+`/en/about`, `/am/about`, `/om/about`.
+
+The language is in the path rather than a cookie because the way a link reaches a guest here is
+pasted into Telegram. A cookie would open that link in whatever language the *recipient's* browser
+guessed; a path opens it in the language the sender was reading. `/` and any unprefixed path
+redirect to the visitor's own language — their last choice if they made one, otherwise their
+browser's `Accept-Language`, otherwise English — and each page carries `hreflang` links to its two
+siblings so a search engine treats them as one page in three languages rather than three rivals.
+
+| File | What it holds |
+| --- | --- |
+| [`src/lib/i18n.ts`](src/lib/i18n.ts) | The locale list, negotiation, and `fill()` |
+| [`src/lib/dictionaries/en.ts`](src/lib/dictionaries/en.ts) | Every English string — **and the type** |
+| `src/lib/dictionaries/am.ts`, `om.ts` | The same shape, translated |
+
+**English is the source of truth in the type system.** `Dictionary` is inferred from `en.ts`, so a
+key missing from Amharic is a build error rather than a paragraph that silently reverts to English
+halfway down a page nobody on the team can read. The arrays are tuples for the same reason: a
+translation cannot arrive with five steps where the layout expects six.
+
+**Values go into sentences through `{v}`, never by concatenation.** English says "within one
+working day" with a space on each side; Amharic prefixes በ straight onto the value with none. Two
+half-strings glued round a value can only ever be correct in one language — which is exactly the
+bug that shipped `fromMegersa` in English and `በ አንድ` in Amharic before this rule existed.
+
+Adding a fourth language is three steps: add it to `LOCALES`, name it in `LOCALE_NAMES`, and copy
+a dictionary. TypeScript then lists everything still untranslated.
+
+**Ethiopic does not take Latin typography.** The mono labels through this design are letter-spaced
+small caps, which ግዕዝ has no case for and no tolerance of — tracking pushes its syllables apart
+until a word stops looking like a word. `globals.css` switches both the tracking and the tight
+display spacing off under `:lang(am)`.
+
+**Every public fact lives in [`src/lib/site.ts`](src/lib/site.ts)** — phone, email, handles, city, opening hours, the year you started. They are all placeholders today. Replace them there and the header, footer, contact page and about page all follow; anything set to `null` stops being rendered rather than becoming a dead link.
+
+**Enquiries are rows, not email.** The contact form writes an `Inquiry` and stops. No API key to expire, no sending domain to verify, nothing that can be turned into a way to send mail from someone else's address — and a message that arrives on a Saturday night is still in `/admin/inbox` on Monday, with a count on the dashboard's first screen until it is marked answered.
+
+It is also the only write path in the app an anonymous visitor can reach, so it carries its own defences: a honeypot field no human sees, a length cap on every column, and nothing the sender supplied echoed back to them. There is no rate limit — add one if a bot ever finds it, but a per-instance counter is worth nothing on serverless and a shared one is a Redis nobody wanted to run yet.
 
 ## Printable QR inserts
 
@@ -326,10 +379,17 @@ queue with workers to run it; the size cap is what makes that unnecessary.
 ## How the pieces fit
 
 ```
-src/app/page.tsx                              public page; the hero is a live card
+src/app/(site)/[lang]/                        the public site, in en | am | om
+src/app/(site)/[lang]/page.tsx                home; the hero card re-weaves as you pick an occasion
+src/app/(site)/[lang]/contact/actions.ts      the one write path anyone on the internet can reach
+src/lib/i18n.ts                               locales, negotiation, and fill()
+src/lib/dictionaries/                         en.ts is the source of truth; am.ts and om.ts match it
+src/middleware.ts                             admin auth, and sending / to a language
+src/lib/site.ts                               phone, email, handles, city — every public fact, once
 src/app/g/[code]/page.tsx                     what a guest sees after scanning
 src/app/api/qr/[code]/route.ts                PNG + SVG codes, any size
 src/app/admin/                                dashboard: events, guests, media, print sheet
+src/app/admin/inbox/page.tsx                  enquiries from the contact page
 src/app/admin/events/[id]/cards/page.tsx      four arch inserts to an A4 sheet, printed from the browser
 src/lib/insert-card/artwork.mjs               the arch insert, as an SVG; pure, no I/O
 scripts/insert-card/render.mjs                SVG to press-ready PDF and 300dpi PNG
@@ -363,6 +423,11 @@ a keepsake, the other is a tool.
 
 ## Before this goes live
 
+- [ ] Fill in [`src/lib/site.ts`](src/lib/site.ts) and the story in the three dictionaries. Every
+      phone number, handle and founding year on the public site is a placeholder today, and a
+      contact page that lists an address nobody reads is worse than no contact page.
+- [ ] Have a native speaker read `am.ts` and `om.ts` end to end. They were translated with care
+      and without fluency, which is a difference wedding copy shows. Afaan Oromoo needs it most.
 - [ ] Give each host their own login if clients will use the dashboard directly — today it's a
       single shared `ADMIN_PASSWORD` and every host can see every other host's guest list.
 - [ ] Guest pages are unlisted but public — anyone with a code can open one. If a host wants a card

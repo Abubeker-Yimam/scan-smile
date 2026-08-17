@@ -71,3 +71,36 @@ model Guest {
 
   @@index([eventId])
 }
+
+/// Someone asking about their own celebration, from the public contact page.
+///
+/// Kept in the database rather than emailed onward. An email needs an account,
+/// a key and a verified domain, and fails silently when any of the three lapse;
+/// a row is still here on Monday morning, in the same dashboard the host
+/// already signs in to.
+model Inquiry {
+  id String @id @default(cuid())
+
+  name    String
+  email   String
+  phone   String?
+  /// The occasion they are planning — an EventKind value, so the reply can
+  /// start from the right palette. OTHER when they did not say.
+  kind    String  @default("OTHER")
+  message String
+
+  eventDate  DateTime?
+  guestCount Int?
+
+  /// The language the contact page was in when they wrote — en | am | om.
+  /// Answering an Amharic enquiry in English is a small insult that costs
+  /// nothing to avoid, so the inbox shows it beside the message.
+  locale String @default("en")
+
+  /// Cleared by the host once the enquiry has been answered. Kept rather than
+  /// deleted, so an event can be traced back to the message that started it.
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([handled, createdAt])
+}
