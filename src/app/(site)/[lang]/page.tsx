@@ -55,9 +55,9 @@ export default async function HomePage({ params }: LangParams) {
 
   return (
     <main>
-      <div className="mx-auto max-w-[64rem] px-6 py-12 sm:py-20">
+      <div className="mx-auto max-w-[64rem] px-5 py-10 sm:px-6 sm:py-20">
         {/* The hero is the product: a code on a table, waiting to be scanned. */}
-        <section className="grid items-center gap-12 lg:grid-cols-[1.15fr_1fr]">
+        <section className="grid items-center gap-10 sm:gap-12 lg:grid-cols-[1.15fr_1fr]">
           <div>
             <h1
               className="font-display font-black tracking-tight"
@@ -113,7 +113,7 @@ export default async function HomePage({ params }: LangParams) {
           )}
         </section>
 
-        <section className="mt-24 border-t border-cotton/10 pt-10 sm:mt-32">
+        <section className="mt-16 border-t border-cotton/10 pt-10 sm:mt-32">
           <h2 className="font-mono text-[0.62rem] tracking-[0.2em] text-cotton/50 uppercase">
             {d.home.stepsHeading}
           </h2>
@@ -143,7 +143,7 @@ export default async function HomePage({ params }: LangParams) {
           </p>
         </section>
 
-        <section className="mt-24 border-t border-cotton/10 pt-10 sm:mt-32">
+        <section className="mt-16 border-t border-cotton/10 pt-10 sm:mt-32">
           <div className="grid gap-10 lg:grid-cols-[1fr_1fr]">
             <div>
               <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
@@ -164,7 +164,7 @@ export default async function HomePage({ params }: LangParams) {
           </div>
         </section>
 
-        <section className="mt-24 border border-cotton/15 px-8 py-12 sm:mt-32 sm:px-12">
+        <section className="mt-16 border border-cotton/15 px-6 py-10 sm:mt-32 sm:px-12 sm:py-12">
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
             {d.home.ctaHeading}
           </h2>

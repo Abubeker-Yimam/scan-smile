@@ -33,7 +33,7 @@ export default async function AboutPage({ params }: LangParams) {
   const t = d.about;
 
   return (
-    <main className="mx-auto max-w-[64rem] px-6 py-12 sm:py-20">
+    <main className="mx-auto max-w-[64rem] px-5 py-10 sm:px-6 sm:py-20">
       <header className="max-w-[38rem]">
         <p className="font-mono text-[0.62rem] tracking-[0.2em] text-gold uppercase">{t.eyebrow}</p>
         <h1
@@ -45,16 +45,16 @@ export default async function AboutPage({ params }: LangParams) {
         <p className="mt-7 font-body text-lg text-cotton/70">{fill(t.lede, ABOUT.founded)}</p>
       </header>
 
-      <div className="tibeb mt-16 h-3 w-full" aria-hidden="true" />
+      <div className="tibeb mt-12 h-3 w-full sm:mt-16" aria-hidden="true" />
 
-      <section className="mt-16 grid gap-10 lg:grid-cols-[1.3fr_1fr]">
+      <section className="mt-12 grid gap-10 sm:mt-16 lg:grid-cols-[1.3fr_1fr]">
         <div className="max-w-[38rem] space-y-6 font-body text-cotton/70">
           {t.story.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}
         </div>
 
-        <aside className="border border-cotton/15 px-7 py-8">
+        <aside className="border border-cotton/15 px-6 py-7 sm:px-7 sm:py-8">
           <h2 className="font-mono text-[0.6rem] tracking-[0.2em] text-cotton/45 uppercase">
             {t.whereHeading}
           </h2>
@@ -64,7 +64,7 @@ export default async function AboutPage({ params }: LangParams) {
         </aside>
       </section>
 
-      <section className="mt-24 border-t border-cotton/10 pt-12">
+      <section className="mt-16 border-t border-cotton/10 pt-12 sm:mt-24">
         <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
           {t.principlesHeading}
         </h2>
@@ -83,7 +83,7 @@ export default async function AboutPage({ params }: LangParams) {
 
       {/* TODO: real names and roles, or delete this section outright — an
           honest two-line page beats a team grid with placeholders in it. */}
-      <section className="mt-24 border-t border-cotton/10 pt-12">
+      <section className="mt-16 border-t border-cotton/10 pt-12 sm:mt-24">
         <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
           {t.teamHeading}
         </h2>
@@ -99,7 +99,7 @@ export default async function AboutPage({ params }: LangParams) {
         </ul>
       </section>
 
-      <section className="mt-24 border border-cotton/15 px-8 py-12 sm:px-12">
+      <section className="mt-16 border border-cotton/15 px-6 py-10 sm:mt-24 sm:px-12 sm:py-12">
         <h2 className="font-display text-3xl font-bold tracking-tight">{t.ctaHeading}</h2>
         <p className="mt-4 max-w-[34rem] font-body text-cotton/70">
           {fill(t.ctaBody, CONTACT.replyWithin[lang])}

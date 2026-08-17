@@ -53,7 +53,7 @@ export function LanguageToggle({ current, label }: { current: Locale; label: str
     <details ref={details} className="relative">
       <summary
         aria-label={label}
-        className="flex cursor-pointer list-none items-center gap-2 border border-cotton/15 px-3 py-1.5 font-mono text-[0.62rem] tracking-[0.14em] text-cotton/70 uppercase transition-colors select-none hover:border-cotton/40 hover:text-cotton [&::-webkit-details-marker]:hidden"
+        className="flex cursor-pointer list-none items-center gap-2 border border-cotton/15 px-3 py-2.5 font-mono sm:py-1.5 text-[0.62rem] tracking-[0.14em] text-cotton/70 uppercase transition-colors select-none hover:border-cotton/40 hover:text-cotton [&::-webkit-details-marker]:hidden"
       >
         {LOCALE_NAMES[current].short}
         <svg
@@ -81,7 +81,7 @@ export function LanguageToggle({ current, label }: { current: Locale; label: str
                   if (details.current) details.current.open = false;
                 }}
                 className={
-                  "flex items-center gap-2.5 px-3.5 py-2 font-body text-sm transition-colors " +
+                  "flex items-center gap-2.5 px-3.5 py-3 font-body text-sm transition-colors sm:py-2 " +
                   (active ? "text-gold" : "text-cotton/70 hover:bg-ink-3 hover:text-cotton")
                 }
               >

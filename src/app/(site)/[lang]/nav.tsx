@@ -12,14 +12,19 @@ import { usePathname } from "next/navigation";
 export function SiteNav({
   items,
   navLabel,
+  className = "",
 }: {
   items: { href: string; label: string }[];
   navLabel: string;
+  className?: string;
 }) {
   const pathname = usePathname();
 
   return (
-    <nav aria-label={navLabel} className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+    <nav
+      aria-label={navLabel}
+      className={`flex flex-wrap items-baseline gap-x-5 gap-y-2 sm:gap-x-6 ${className}`}
+    >
       {items.map((item) => {
         const active = pathname === item.href;
         return (

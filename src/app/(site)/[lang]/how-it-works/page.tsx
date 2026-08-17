@@ -25,7 +25,7 @@ export default async function HowItWorksPage({ params }: LangParams) {
   const t = d.howItWorks;
 
   return (
-    <main className="mx-auto max-w-[64rem] px-6 py-12 sm:py-20">
+    <main className="mx-auto max-w-[64rem] px-5 py-10 sm:px-6 sm:py-20">
       <header className="max-w-[38rem]">
         <p className="font-mono text-[0.62rem] tracking-[0.2em] text-gold uppercase">{t.eyebrow}</p>
         <h1
@@ -37,7 +37,7 @@ export default async function HowItWorksPage({ params }: LangParams) {
         <p className="mt-7 font-body text-lg text-cotton/70">{t.lede}</p>
       </header>
 
-      <ol className="mt-20 space-y-16">
+      <ol className="mt-14 space-y-12 sm:mt-20 sm:space-y-16">
         {t.steps.map((step, index) => (
           <li key={step.title} className="grid gap-6 sm:grid-cols-[8rem_1fr] sm:gap-10">
             <div>
@@ -61,7 +61,7 @@ export default async function HowItWorksPage({ params }: LangParams) {
         ))}
       </ol>
 
-      <section className="mt-24 border-t border-cotton/10 pt-12 sm:mt-32">
+      <section className="mt-16 border-t border-cotton/10 pt-12 sm:mt-32">
         <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
           {t.guestHeading}
         </h2>
@@ -75,7 +75,7 @@ export default async function HowItWorksPage({ params }: LangParams) {
         </ol>
       </section>
 
-      <section className="mt-24 border-t border-cotton/10 pt-12 sm:mt-32">
+      <section className="mt-16 border-t border-cotton/10 pt-12 sm:mt-32">
         <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
           {t.faqHeading}
         </h2>
@@ -89,7 +89,7 @@ export default async function HowItWorksPage({ params }: LangParams) {
         </dl>
       </section>
 
-      <section className="mt-20 border border-cotton/15 px-8 py-12 sm:px-12">
+      <section className="mt-16 border border-cotton/15 px-6 py-10 sm:mt-20 sm:px-12 sm:py-12">
         <h2 className="font-display text-3xl font-bold tracking-tight">{t.ctaHeading}</h2>
         <p className="mt-4 max-w-[34rem] font-body text-cotton/70">
           {fill(t.ctaBody, CONTACT.replyWithin[lang])}
