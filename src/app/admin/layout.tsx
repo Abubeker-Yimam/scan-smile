@@ -12,6 +12,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             One scan, a lifetime of memories
           </p>
           <Link
+            href="/admin/inbox"
+            className="font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4 hover:text-coffee"
+          >
+            Inbox
+          </Link>
+          <Link
             href="/"
             className="ml-auto font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4 hover:text-coffee"
           >

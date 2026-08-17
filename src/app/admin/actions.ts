@@ -112,7 +112,6 @@ export async function updateEvent(_prev: ActionState, form: FormData): Promise<A
       eyebrow: optional(form, "eyebrow"),
       themeThreads: threads.threads,
       defaultMessage: optional(form, "defaultMessage"),
-      defaultVideoUrl: optional(form, "defaultVideoUrl"),
       ...(coverImageUrl ? { coverImageUrl } : {}),
     },
   });

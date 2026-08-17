@@ -157,7 +157,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               eyebrow: event.eyebrow,
               themeThreads: event.themeThreads,
               defaultMessage: event.defaultMessage,
-              defaultVideoUrl: event.defaultVideoUrl,
             }}
           />
         </div>
