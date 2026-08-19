@@ -276,6 +276,7 @@ export const om: Dictionary = {
       telegram: "Telegram",
       whatsapp: "WhatsApp",
       instagram: "Instagram",
+      tiktok: "TikTok",
     },
 
     whenHeading: "Yoom akka deebisnu",
@@ -314,7 +315,7 @@ export const om: Dictionary = {
       message:
         "Waaʼee ayyaanichaa hima tokko yookaan lama itti dabali. Gosa ayyaanaa fi guyyaa tilmaamaa qofti jalqabuuf gaʼaadha.",
       saveFailed:
-        "Karaa keenyaan rakkoon uumamee ergaan kee hin olkaaʼamne. Maaloo kallattiin teessoo kanatti nuuf ergi: {v} — dhiifama gaafanna.",
+        "Karaa keenyaan rakkoon uumamee ergaan kee hin olkaaʼamne. Maaloo kallattiin lakkoofsa kanaan nu qunnami: {v} — dhiifama gaafanna.",
     },
 
     sentShort: "Galatoomi — ergaan kee nu bira jira.",
