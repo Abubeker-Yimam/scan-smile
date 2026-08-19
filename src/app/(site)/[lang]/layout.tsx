@@ -8,6 +8,7 @@ import {
   dialable,
   instagramUrl,
   telegramUrl,
+  tiktokUrl,
 } from "@/lib/site";
 import { LanguageToggle } from "./language-toggle";
 import { SiteNav } from "./nav";
@@ -107,11 +108,13 @@ export default async function SiteLayout({
               {d.nav.reach}
             </h2>
             <ul className="mt-4 space-y-2 font-body text-sm">
-              <li>
-                <a href={`mailto:${CONTACT.email}`} className="text-cotton/70 hover:text-gold">
-                  {CONTACT.email}
-                </a>
-              </li>
+              {CONTACT.email && (
+                <li>
+                  <a href={`mailto:${CONTACT.email}`} className="text-cotton/70 hover:text-gold">
+                    {CONTACT.email}
+                  </a>
+                </li>
+              )}
               <li>
                 <a
                   href={`tel:${dialable(CONTACT.phone)}`}
@@ -138,6 +141,13 @@ export default async function SiteLayout({
                     className="text-cotton/70 hover:text-gold"
                   >
                     {d.contact.labels.instagram} @{CONTACT.instagram}
+                  </a>
+                </li>
+              )}
+              {CONTACT.tiktok && (
+                <li>
+                  <a href={tiktokUrl(CONTACT.tiktok)} className="text-cotton/70 hover:text-gold">
+                    {d.contact.labels.tiktok} @{CONTACT.tiktok}
                   </a>
                 </li>
               )}

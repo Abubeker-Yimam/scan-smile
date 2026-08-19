@@ -8,6 +8,7 @@ import {
   dialable,
   instagramUrl,
   telegramUrl,
+  tiktokUrl,
   whatsappUrl,
 } from "@/lib/site";
 import type { LangParams } from "../layout";
@@ -39,7 +40,11 @@ export default async function ContactPage({ params }: LangParams) {
    * use, and refusing to offer it only loses the enquiry.
    */
   const direct = [
-    { label: t.labels.email, value: CONTACT.email, href: `mailto:${CONTACT.email}` },
+    CONTACT.email && {
+      label: t.labels.email,
+      value: CONTACT.email,
+      href: `mailto:${CONTACT.email}`,
+    },
     { label: t.labels.phone, value: CONTACT.phone, href: `tel:${dialable(CONTACT.phone)}` },
     CONTACT.telegram && {
       label: t.labels.telegram,
@@ -55,6 +60,11 @@ export default async function ContactPage({ params }: LangParams) {
       label: t.labels.instagram,
       value: `@${CONTACT.instagram}`,
       href: instagramUrl(CONTACT.instagram),
+    },
+    CONTACT.tiktok && {
+      label: t.labels.tiktok,
+      value: `@${CONTACT.tiktok}`,
+      href: tiktokUrl(CONTACT.tiktok),
     },
   ].filter(Boolean) as { label: string; value: string; href: string }[];
 

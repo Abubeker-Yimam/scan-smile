@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { dictionary } from "@/lib/dictionaries";
 import { EVENT_KINDS, type EventKind } from "@/lib/events";
 import { DEFAULT_LOCALE, fill, isLocale, type Locale } from "@/lib/i18n";
-import { CONTACT } from "@/lib/site";
+import { CONTACT, fallbackContact } from "@/lib/site";
 
 export type ContactState = { error?: string; ok?: string };
 
@@ -100,7 +100,7 @@ export async function sendInquiry(_prev: ContactState, form: FormData): Promise<
     // Someone took the trouble to write. Losing that silently is worse than
     // admitting the failure and handing them an address that does not depend
     // on this app being healthy.
-    return { error: fill(t.errors.saveFailed, CONTACT.email) };
+    return { error: fill(t.errors.saveFailed, fallbackContact()) };
   }
 
   return { ok: fill(t.sent, CONTACT.replyWithin[lang]) };

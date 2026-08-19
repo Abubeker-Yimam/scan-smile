@@ -12,27 +12,29 @@ import type { Locale } from "./i18n";
  * Amharic page reads beautifully until it hits "one working day" in the middle
  * of a sentence.
  *
- * ---------------------------------------------------------------------------
- * TODO — every value below is a placeholder. Replace them before this is
- * public. Anything set to `null` is simply not rendered, so an unfinished
- * field costs a line on the page rather than a broken link.
- * ---------------------------------------------------------------------------
+ * Anything set to `null` is simply not rendered, so a channel we do not run
+ * costs a line on the page rather than a dead link.
  */
 
 /** A value that has to be said, not just shown — one per language. */
 type Phrase = Record<Locale, string>;
 
 export const CONTACT = {
-  /** TODO: the address you actually read. */
-  email: "hello@scanandsmile.et",
-  /** TODO: displayed as typed, and dialled with the spaces stripped. */
-  phone: "+251 91 234 5678",
+  /**
+   * TODO: no public address yet. Until there is one the form is the written
+   * route in, and the phone is what the failure message hands out instead.
+   */
+  email: null as string | null,
+  /** Displayed as typed, and dialled with the spaces stripped. */
+  phone: "0925 804 393",
   /** TODO: handle only, no @. Set to null to drop the link. */
-  telegram: "scanandsmile" as string | null,
-  /** TODO: handle only, no @. Set to null to drop the link. */
-  instagram: "scanandsmile" as string | null,
+  telegram: null as string | null,
+  /** Handle only, no @. */
+  instagram: "scan.and.smile" as string | null,
+  /** Handle only, no @. */
+  tiktok: "scan.smile" as string | null,
   /** TODO: digits only, country code first. Null drops the link. */
-  whatsapp: "251912345678" as string | null,
+  whatsapp: null as string | null,
 
   /** TODO: where you are. Shown on the contact page, not a postal address. */
   city: {
@@ -75,8 +77,18 @@ export const ABOUT = {
 /** `tel:` and `wa.me` want digits; humans want the spaces. */
 export const dialable = (phone: string) => phone.replace(/[^\d+]/g, "");
 
+/**
+ * The one line a message can always be answered on.
+ *
+ * The contact form tells people where to go when saving their enquiry fails,
+ * and that route cannot be the app itself. An address is the better answer
+ * when there is one; until then the phone is what we can honestly offer.
+ */
+export const fallbackContact = () => CONTACT.email ?? CONTACT.phone;
+
 export const telegramUrl = (handle: string) => `https://t.me/${handle}`;
 export const instagramUrl = (handle: string) => `https://instagram.com/${handle}`;
+export const tiktokUrl = (handle: string) => `https://tiktok.com/@${handle}`;
 export const whatsappUrl = (digits: string) => `https://wa.me/${digits}`;
 
 /**

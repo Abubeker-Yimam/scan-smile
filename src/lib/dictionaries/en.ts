@@ -283,6 +283,7 @@ export const en = {
       telegram: "Telegram",
       whatsapp: "WhatsApp",
       instagram: "Instagram",
+      tiktok: "TikTok",
     },
 
     whenHeading: "When we answer",
@@ -321,9 +322,9 @@ export const en = {
       email: "That email does not look right — we would have no way to answer.",
       message:
         "Add a line or two about the celebration. Even the occasion and a rough date is enough to start.",
-      /** `{v}` is the address to write to instead. */
+      /** `{v}` is the line to reach us on instead. */
       saveFailed:
-        "Something went wrong at our end and your message was not saved. Please email us directly at {v} — we are sorry.",
+        "Something went wrong at our end and your message was not saved. Please reach us directly on {v} — we are sorry.",
     },
 
     sentShort: "Thank you — your message is with us.",
