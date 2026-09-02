@@ -3,11 +3,16 @@ import { db } from "@/lib/db";
 import { kindConfig, threadVars } from "@/lib/events";
 import { formatEventDate } from "@/lib/media";
 import { EventForm } from "./forms";
-import { signOut } from "./login/actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminHome() {
+export default async function AdminHome({
+  searchParams,
+}: {
+  searchParams: Promise<{ inquiryId?: string }>;
+}) {
+  const { inquiryId } = await searchParams;
+
   const events = await db.event.findMany({
     orderBy: [{ eventDate: "desc" }, { createdAt: "desc" }],
     include: {
@@ -16,90 +21,165 @@ export default async function AdminHome() {
     },
   });
 
-  // Someone who wrote from the contact page is waiting on a person, not on the
-  // app. Surfacing the count on the first screen after signing in is the whole
-  // difference between an inbox and a table nobody opens.
   const waiting = await db.inquiry.count({ where: { handled: false } });
 
+  // If redirected from an inquiry, pre-fill the booking form
+  let prefillEvent = undefined;
+  if (inquiryId) {
+    const inquiry = await db.inquiry.findUnique({ where: { id: inquiryId } });
+    if (inquiry) {
+      prefillEvent = {
+        title: `${inquiry.name} — ${kindConfig(inquiry.kind).label}`,
+        kind: inquiry.kind,
+        hostNames: inquiry.name,
+        eventDate: inquiry.eventDate ? inquiry.eventDate.toISOString().slice(0, 10) : undefined,
+      };
+    }
+  }
+
   return (
-    <div className="space-y-14">
+    <div className="space-y-12">
+      {/* Inbox alert banner */}
       {waiting > 0 && (
         <Link
           href="/admin/inbox"
-          className="flex flex-wrap items-center gap-x-4 gap-y-2 border border-coffee/25 bg-white px-5 py-4 transition-colors hover:bg-cotton-2"
+          className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xs border border-coffee/20 bg-white p-4 shadow-xs transition-colors hover:bg-cotton-2"
         >
           <span className="tibeb h-2 w-10 shrink-0" aria-hidden="true" />
-          <span className="font-body">
-            {waiting === 1 ? "One message is" : `${waiting} messages are`} waiting for an answer.
+          <span className="font-body text-sm font-medium text-coffee">
+            {waiting === 1 ? "One customer inquiry is" : `${waiting} customer inquiries are`}{" "}
+            waiting for an answer.
           </span>
-          <span className="ml-auto font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4">
-            Open the inbox
+          <span className="ml-auto font-mono text-[0.62rem] tracking-[0.16em] text-gold uppercase underline underline-offset-4 font-semibold">
+            Open inbox →
           </span>
         </Link>
       )}
 
+      {/* Events section */}
       <section>
-        <div className="flex flex-wrap items-baseline justify-between gap-4">
-          <h1 className="font-display text-3xl font-bold tracking-tight">Events</h1>
-          <form action={signOut}>
-            <button className="font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4 hover:text-coffee">
-              Sign out
-            </button>
-          </form>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-coffee">Events</h1>
+            <p className="mt-1 font-body text-sm text-ash">
+              {events.length} {events.length === 1 ? "event" : "events"} managed on this dashboard.
+            </p>
+          </div>
+          <a
+            href="#book-event"
+            className="inline-flex items-center gap-2 rounded-xs border border-coffee bg-coffee px-4 py-2 font-mono text-[0.65rem] tracking-[0.16em] text-cotton uppercase hover:bg-ink transition-colors font-semibold"
+          >
+            <span>+ Book new event</span>
+          </a>
         </div>
 
         {events.length === 0 ? (
-          <p className="mt-6 border border-dashed border-cotton-3 px-6 py-10 text-center font-body text-ash">
-            No events yet. Create one below, then add the guest list.
-          </p>
+          <div className="mt-6 rounded-xs border border-dashed border-cotton-3 bg-white/60 px-6 py-12 text-center font-body text-ash">
+            <p>No events created yet.</p>
+            <p className="mt-1 text-sm text-ash/80">
+              Create your first celebration below, then add your guests.
+            </p>
+          </div>
         ) : (
-          <ul className="mt-6 divide-y divide-cotton-3 border-y border-cotton-3">
+          <div className="mt-6 grid gap-4">
             {events.map((event) => {
               const scanned = event.guests.filter((g) => g.scanCount > 0).length;
+              const total = event._count.guests;
+              const scannedPercent = total > 0 ? Math.round((scanned / total) * 100) : 0;
               const date = formatEventDate(event.eventDate);
+              const kind = kindConfig(event.kind);
+
               return (
-                <li key={event.id}>
-                  <Link
-                    href={`/admin/events/${event.id}`}
-                    className="group flex items-stretch gap-5 py-5 transition-colors hover:bg-cotton-2"
-                  >
+                <div
+                  key={event.id}
+                  className="group relative flex flex-col justify-between rounded-xs border border-cotton-3 bg-white p-5 shadow-xs transition-all hover:border-gold hover:shadow-sm"
+                >
+                  <div className="flex items-start gap-4">
                     <span
                       style={threadVars(event)}
-                      className="tibeb tibeb-v w-[6px] shrink-0"
+                      className="tibeb tibeb-v w-2 shrink-0 self-stretch rounded-xs"
                       aria-hidden="true"
                     />
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-mono text-[0.62rem] tracking-[0.18em] text-ash uppercase">
-                        {event.eyebrow?.trim() || kindConfig(event.kind).label}
-                        {date && ` · ${date}`}
-                      </span>
-                      <span className="mt-1 block truncate font-display text-xl font-semibold group-hover:underline">
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 font-mono text-[0.62rem] tracking-wider uppercase text-ash">
+                        <span className="font-semibold text-coffee">
+                          {event.eyebrow?.trim() || kind.label}
+                        </span>
+                        {date && <span>· {date}</span>}
+                        {event.venue && <span>· {event.venue}</span>}
+                      </div>
+
+                      <Link
+                        href={`/admin/events/${event.id}`}
+                        className="mt-1 block font-display text-2xl font-bold tracking-tight text-coffee group-hover:text-ink group-hover:underline"
+                      >
                         {event.title}
-                      </span>
-                      <span className="mt-0.5 block font-body text-sm text-ash">
-                        {event.hostNames}
-                        {event.venue && ` · ${event.venue}`}
-                      </span>
-                    </span>
-                    <span className="shrink-0 self-center pr-2 text-right font-mono text-[0.7rem] text-ash">
-                      <span className="block text-coffee">{event._count.guests} guests</span>
-                      <span className="block">{scanned} scanned</span>
-                    </span>
-                  </Link>
-                </li>
+                      </Link>
+
+                      <p className="mt-1 font-body text-sm text-ash">
+                        Hosted by <span className="font-medium text-coffee">{event.hostNames}</span>
+                      </p>
+                    </div>
+
+                    {/* Quick guest & scan summary */}
+                    <div className="hidden sm:block text-right shrink-0">
+                      <p className="font-mono text-xs font-semibold text-coffee">
+                        {total} {total === 1 ? "guest" : "guests"}
+                      </p>
+                      <p className="font-mono text-[0.68rem] text-ash tracking-wider">
+                        {scanned} scanned ({scannedPercent}%)
+                      </p>
+                      <div className="mt-2 h-1.5 w-28 rounded-full bg-cotton-3 overflow-hidden ml-auto">
+                        <div
+                          className="h-full bg-gold rounded-full"
+                          style={{ width: `${scannedPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card actions footer */}
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-cotton-3/60 pt-4 font-mono text-[0.62rem] tracking-wider uppercase">
+                    <div className="sm:hidden font-mono text-xs text-ash">
+                      {total} guests · {scanned} scanned ({scannedPercent}%)
+                    </div>
+
+                    <div className="flex items-center gap-4 ml-auto">
+                      <Link
+                        href={`/admin/events/${event.id}/cards`}
+                        className="text-ash hover:text-coffee underline underline-offset-4"
+                      >
+                        Print cards
+                      </Link>
+                      <Link
+                        href={`/admin/events/${event.id}`}
+                        className="rounded-xs border border-cotton-3 px-3 py-1 text-coffee hover:border-coffee font-semibold"
+                      >
+                        Manage event →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
       </section>
 
-      <section>
-        <h2 className="font-display text-2xl font-bold tracking-tight">Book a new event</h2>
-        <p className="mt-2 font-body text-ash">
-          Set the occasion and the hosts. Guests come next.
-        </p>
-        <div className="mt-6 max-w-[42rem]">
-          <EventForm />
+      {/* Book new event section */}
+      <section id="book-event" className="border-t border-cotton-3 pt-10">
+        <div className="max-w-[42rem]">
+          <h2 className="font-display text-2xl font-bold tracking-tight text-coffee">
+            {prefillEvent ? "Create event from inquiry" : "Book a new event"}
+          </h2>
+          <p className="mt-1 font-body text-sm text-ash mb-6">
+            Set the occasion, hosts, date, and venue. Guests can be added immediately after.
+          </p>
+
+          <div className="rounded-xs border border-cotton-3 bg-white p-6 shadow-xs">
+            <EventForm event={prefillEvent} />
+          </div>
         </div>
       </section>
     </div>

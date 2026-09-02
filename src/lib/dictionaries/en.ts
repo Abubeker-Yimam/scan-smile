@@ -51,7 +51,13 @@ export const en = {
     heroBody:
       "Every guest at your celebration finds a card at their place with their name on it. They scan it, and a page opens that was written for them alone — a welcome, a note from you, a photo, a short video.",
     heroCta: "Plan your event",
+    heroTelegramCta: "Chat on Telegram",
     heroSecondary: "See how it works",
+
+    viewCard: "Table card",
+    viewPhone: "Guest's phone",
+    phonePreviewGuest: "Sara Megersa",
+    phonePreviewVideoBadge: "Greeting video (0:45)",
 
     cardCaption: "A real card — point your phone at it",
     weaveFor: "Weave it for",
@@ -73,6 +79,23 @@ export const en = {
       TRADITIONAL: { hosts: "Ato Bekele & family", date: "9 January 2027", table: "Table 1" },
       ANNIVERSARY: { hosts: "Tigist & Dawit", date: "14 February 2027", table: "Table 3" },
       BABY_SHOWER: { hosts: "Ruth & Samuel", date: "22 March 2026", table: "Table 5" },
+    },
+
+    sampleNotes: {
+      WEDDING:
+        "Sara, we are so blessed to celebrate our wedding day with you. Thank you for traveling across the city to share our joy!",
+      ENGAGEMENT:
+        "Dearest family, thank you for honoring our union and bringing warmth and blessing to our Shengerena ceremony.",
+      BIRTHDAY:
+        "Nardos, your joyful friendship brightens every room. Thank you for celebrating another beautiful year with me!",
+      GRADUATION:
+        "To our family and friends: your guidance made this degree possible. Thank you for walking this proud milestone with us.",
+      TRADITIONAL:
+        "Welcome to our traditional gathering. May peace, blessings, and abundance be upon our elders and honored guests.",
+      ANNIVERSARY:
+        "Ten wonderful years of love and family, made truly unforgettable by your cherished company tonight.",
+      BABY_SHOWER:
+        "We can't wait for our baby to grow up surrounded by loving friends like you. Thank you for showering us with love!",
     },
 
     unavailable: "The sample card is taking a moment to load. Refresh in a few seconds.",
@@ -112,6 +135,53 @@ export const en = {
       { value: "No app", body: "for guests to install. A phone camera opens the page, nothing else." },
       { value: "Every seat", body: "gets its own code, so a card can never open the wrong person's page." },
       { value: "You see", body: "who scanned and when, from the dashboard, while the evening is happening." }
+    ),
+
+    testimonialsHeading: "Loved by hosts across Addis Ababa",
+    testimonialsSub: "Real celebrations made unforgettable with personalized guest cards.",
+    testimonials: tuple(
+      {
+        quote:
+          "Our wedding guests were blown away. Instead of generic table numbers, everyone found their names and a personal note from us. People kept the cards as souvenirs long after the night ended.",
+        author: "Hanna & Yonas",
+        event: "Wedding Celebration",
+        venue: "Skylight Hotel, Addis Ababa",
+      },
+      {
+        quote:
+          "The woven tibeb colors matched our Shengerena decor to the exact thread. Being able to update our welcome video the morning of the event without touching the printed cards was pure magic.",
+        author: "Sara & Megersa",
+        event: "Shengerena Ceremony",
+        venue: "Sheraton Addis",
+      },
+      {
+        quote:
+          "Pasting our 250-guest spreadsheet took under three minutes. Not a single person asked 'what app do I install?' — their normal phone camera opened their seat greeting instantly.",
+        author: "Dr. Dawit Alemu",
+        event: "Graduation Celebration",
+        venue: "Bole Medhanialem",
+      }
+    ),
+
+    faqHeading: "Frequently asked questions",
+    faqSub: "Everything you need to know about setting up cards for your day.",
+    faqs: tuple(
+      {
+        q: "Can I update the message or video after cards are printed?",
+        a: "Yes! Each guest's QR code points to a permanent private link. You can refine your welcome note, change photos, or upload a new greeting video right up until guests arrive.",
+      },
+      {
+        q: "Do our guests need to download any application?",
+        a: "No app required at all. Any modern smartphone camera (iPhone or Android) scans the QR code and opens the guest's personalized page instantly in their browser.",
+      },
+      {
+        q: "How does printing work? Can we print them ourselves?",
+        a: "You can download ready-to-print A4 sheets (four cards per sheet) directly from your dashboard to print at home, or download press-ready arch-cut files for any local print shop.",
+      },
+      {
+        q: "How far in advance should we set up our event?",
+        a: "You can book your event months ahead, paste your guest list once RSVPs finalize, and print whenever you are ready. The whole setup takes under fifteen minutes.",
+      }
     ),
 
     ctaHeading: "Tell us about the day",

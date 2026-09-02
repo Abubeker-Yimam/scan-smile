@@ -58,12 +58,27 @@ type EventDefaults = {
   defaultMessage?: string | null;
 };
 
+const PALETTES = [
+  { name: "Crimson & Gold", threads: "#8E1F2F, #1E5A46, #D4A24C" },
+  { name: "Emerald & Ochre", threads: "#1E5A46, #8E1F2F, #D4A24C" },
+  { name: "Midnight & Gold", threads: "#1A2332, #8E1F2F, #E5B25D" },
+  { name: "Plum & Rose", threads: "#6B1D2F, #3D2645, #D4A24C" },
+  { name: "Gold & Espresso", threads: "#C79A3F, #2A211A, #F0EADE" },
+];
+
 export function EventForm({ event }: { event?: EventDefaults }) {
   const isEdit = Boolean(event?.id);
   const [state, action] = useActionState<ActionState, FormData>(
     isEdit ? updateEvent : createEvent,
     {}
   );
+  const [customThreads, setCustomThreads] = useState(event?.themeThreads ?? "");
+
+  // Extract threads for live preview if valid
+  const parsedThreads = customThreads
+    .split(",")
+    .map((c) => c.trim())
+    .filter((c) => /^#[0-9a-f]{3,8}$/i.test(c));
 
   return (
     <form action={action} className="space-y-5">
@@ -144,8 +159,10 @@ export function EventForm({ event }: { event?: EventDefaults }) {
           </label>
 
           <fieldset className="border-t border-cotton-3 pt-6">
-            <legend className="sr-only">Card appearance</legend>
-            <div className="grid gap-5 sm:grid-cols-2">
+            <legend className="font-mono text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-coffee">
+              Card appearance &amp; Tibeb colours
+            </legend>
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
               <label className="block">
                 <span className={LABEL}>Word above the guest&apos;s name</span>
                 <input
@@ -159,19 +176,71 @@ export function EventForm({ event }: { event?: EventDefaults }) {
                   the list above doesn&apos;t cover.
                 </span>
               </label>
-              <label className="block">
-                <span className={LABEL}>Card colours</span>
+
+              <div className="block">
+                <span className={LABEL}>Custom Tibeb colours</span>
                 <input
                   name="themeThreads"
-                  defaultValue={event?.themeThreads ?? ""}
+                  value={customThreads}
+                  onChange={(e) => setCustomThreads(e.target.value)}
                   placeholder="#8E1F2F, #1E5A46, #D4A24C"
                   className={`${FIELD} font-mono text-sm`}
                 />
                 <span className="mt-1.5 block font-body text-xs text-ash">
-                  Three hex codes — the woven band&apos;s three threads. Empty uses the
-                  occasion&apos;s colours.
+                  Three hex codes for the woven band. Empty uses the default occasion colours.
                 </span>
-              </label>
+
+                {/* Quick preset swatches */}
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {PALETTES.map((p) => (
+                    <button
+                      key={p.name}
+                      type="button"
+                      onClick={() => setCustomThreads(p.threads)}
+                      className="inline-flex items-center gap-1.5 rounded-xs border border-cotton-3 bg-white px-2 py-1 font-mono text-[0.58rem] tracking-wider uppercase text-ash hover:border-gold hover:text-coffee transition-colors"
+                    >
+                      <span className="flex h-2.5 w-5 overflow-hidden rounded-xs border border-cotton-3">
+                        {p.threads.split(",").map((c, i) => (
+                          <span
+                            key={i}
+                            className="h-full flex-1"
+                            style={{ backgroundColor: c.trim() }}
+                          />
+                        ))}
+                      </span>
+                      {p.name}
+                    </button>
+                  ))}
+                  {customThreads && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomThreads("")}
+                      className="font-mono text-[0.58rem] text-ash underline hover:text-coffee px-1 py-1"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+
+                {/* Live Tibeb ribbon preview */}
+                {parsedThreads.length === 3 && (
+                  <div className="mt-3.5">
+                    <span className="block font-mono text-[0.58rem] uppercase tracking-wider text-ash mb-1">
+                      Woven ribbon preview
+                    </span>
+                    <div
+                      className="tibeb h-3 w-full rounded-xs shadow-xs"
+                      style={
+                        {
+                          "--t1": parsedThreads[0],
+                          "--t2": parsedThreads[1],
+                          "--t3": parsedThreads[2],
+                        } as React.CSSProperties
+                      }
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </fieldset>
         </>

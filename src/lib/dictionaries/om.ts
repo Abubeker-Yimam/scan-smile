@@ -48,7 +48,13 @@ export const om: Dictionary = {
     heroBody:
       "Keessummaan ayyaana kee irratti argamu hundi teessoo isaa irratti kaardii maqaa isaa qabu argata. Yeroo iskaanii godhu, fuulli isaaf qofa barreeffame ni banama — simannaa, ergaa ati barreessite, suuraa fi viidiyoo gabaabaa.",
     heroCta: "Ayyaana kee karoorfadhu",
+    heroTelegramCta: "Telegraamiin nu haasofsiisaa",
     heroSecondary: "Akkamitti akka hojjetu ilaali",
+
+    viewCard: "Kaardii minjaalaa",
+    viewPhone: "Bilbila keessummaa",
+    phonePreviewGuest: "Saaraa Megersaa",
+    phonePreviewVideoBadge: "Viidiyoo simannaa (0:45)",
 
     cardCaption: "Kaardii dhugaa — bilbila kee itti qabi",
     weaveFor: "Ayyaana kamiif",
@@ -65,6 +71,23 @@ export const om: Dictionary = {
       TRADITIONAL: { hosts: "Obbo Baqqalaa fi maatii", date: "9 Amajjii 2027", table: "Minjaala 1" },
       ANNIVERSARY: { hosts: "Tigist fi Daawit", date: "14 Guraandhala 2027", table: "Minjaala 3" },
       BABY_SHOWER: { hosts: "Ruut fi Saamuʼeel", date: "22 Bitooteessa 2026", table: "Minjaala 5" },
+    },
+
+    sampleNotes: {
+      WEDDING:
+        "Saaraa, guyyaa cidha keenyaa si wajjin kabajuu keenyaaf baay'ee eebbifamneerra. Gammachuu keenya qooddachuuf waan dhufteef galatoomi!",
+      ENGAGEMENT:
+        "Maatii keenya kabajamoo, sirna Shengerena keenya irratti argamtanii eebba keessan waan nuuf qooddaniif galatatu mala.",
+      BIRTHDAY:
+        "Naardos, michummaan kee yeroo hunda gammachuu addaa fida. Waggaa haaraa anaa wajjin kabajuu keetiif galatoomi!",
+      GRADUATION:
+        "Maatii fi barsiisota keenyaaf: deggersa keessaniin sadarkaa kana geenye. Guyyaa boonaa kana nu wajjin kabajuu keessaniif galatoomaa.",
+      TRADITIONAL:
+        "Gara qophii aadaa keenyaatti nagaan dhuftan. Maanguddoota fi keessummoota keenyaaf nagaan fi eebbi haa baay'atu.",
+      ANNIVERSARY:
+        "Waggoota jaalalaa kurnan arfaasaa ta'an har'a argamuun kee caalaatti mi'eesseera. Galatoomi.",
+      BABY_SHOWER:
+        "Daa'imni keenya hiriyaa jaalala qabu akka kee gidduutti akka guddatu hawwiin eegganna. Jaalala keef galatoomi!",
     },
 
     unavailable: "Kaardiin fakkeenyaa yeroo xinnoo fudhachaa jira. Sekondii muraasa booda fuula haaromsi.",
@@ -104,6 +127,53 @@ export const om: Dictionary = {
       { value: "Aappii hin jiru", body: "keessummoonni buufatan hin jiran. Kaameraan bilbilaa fuulicha bana; kan biraa homaa hin jiru." },
       { value: "Teessoon hundi", body: "koodii ofii qaba; kanaaf kaardiin tokko gonkumaa fuula nama biraa hin banu." },
       { value: "Ati ni argita", body: "eenyu yoom akka iskaanii godhe, galgala sana keessa daashboordii irraa." },
+    ],
+
+    testimonialsHeading: "Keessummeessitoota Finfinnee biratti kan jaallatame",
+    testimonialsSub: "Ayyaanota dhugaa kaardii keessummootaatiin yaadannoo bara baraa taasisan.",
+    testimonials: [
+      {
+        quote:
+          "Keessummoonni cidha keenyaa baay'ee dinqisiifatan. Lakkoofsa minjaalaa barame dhiisanii, hundi isaanii maqaa isaanii fi ergaa addaa nu irraa barreeffame argatan. Kaardicha akka yaadannootti mana fudhatanii galan.",
+        author: "Hannaa fi Yoonas",
+        event: "Ayyaana Cidhaa",
+        venue: "Hoteela Iskaaylaayit, Finfinnee",
+      },
+      {
+        quote:
+          "Halluun tibeb faaya Shengerena keenyaa waliin sirritti walsime. Kaardii maxxanfame osoo hin tuqin ganama ayyaanaa viidiyoo simannaa haaromsuun danda'amuun isaa dinqiidha.",
+        author: "Saaraa fi Megersaa",
+        event: "Sirna Shengerena",
+        venue: "Sheratan Finfinnee",
+      },
+      {
+        quote:
+          "Tarree keessummoota 250 daqiiqaa sadii keessatti galchine. Namni tokkollee 'aappii kam buufadhu?' jedhee hin gaafanne — kaameraan bilbila isaanii battalatti fuula isaanii bane.",
+        author: "Dr. Daawit Alamuu",
+        event: "Ayyaana Eebbaa",
+        venue: "Bolee Medhaaniyyealem",
+      },
+    ],
+
+    faqHeading: "Gaaffilee yeroo baay'ee gaafataman",
+    faqSub: "Waan minjaala irratti kaardii kaa'uun dura beekuu qabdan hunda.",
+    faqs: [
+      {
+        q: "Erga kaardiin maxxanfamee booda ergaa yookaan viidiyoo jijjiiruu nan danda'aa?",
+        a: "Eeyyee! Koodiin QR keessummaa hunda fuula dhaabbataa kan isaaniif qophaa'etti geessa. Hanga keessummoonni dhufanitti ergaa, suuraa yookaan viidiyoo haaraa fe'uu dandeessu.",
+      },
+      {
+        q: "Keessummoonni keenya aappii buufachuu qabuu?",
+        a: "Aappiin kamiyyuu hin barbaachisu. Kaameraan bilbila ammayyaa kamiyyuu koodicha iskaanii yeroo godhu kallattiin braawzarii bilbilaa irratti banama.",
+      },
+      {
+        q: "Maxxansi akkamitti ta'a? Ofii keenya maxxansuu dandeenyaa?",
+        a: "Waraqaa A4 tokko irratti kaardii afur qophaa'e daashboordii keessan irraa buustanii mana yookaan waajjira keessanitti maxxansuu dandeessu; yookaan mana maxxansaatti geessuu dandeessu.",
+      },
+      {
+        q: "Ayyaana keenya dura yoom galmeessuu qabna?",
+        a: "Ji'oota dura galmeessuu dandeessu; yeroo tarreen keessummootaa xumuramu galchitanii yeroo barbaaddan maxxansitu. Guutuun isaa daqiiqaa 15 hin fudhatu.",
+      },
     ],
 
     ctaHeading: "Waa'ee guyyaa sanaa nutti himi",

@@ -19,10 +19,18 @@ export async function GET(
   const { code } = await params;
   const normalized = code.toUpperCase();
 
-  const guest = await db.guest.findUnique({
-    where: { code: normalized },
-    select: { name: true },
-  });
+  let guest = await db.guest
+    .findUnique({
+      where: { code: normalized },
+      select: { name: true },
+    })
+    .catch(() => null);
+
+  // Fallback for demo code so landing page never displays a broken image
+  if (!guest && normalized === "DEMO247") {
+    guest = { name: "Sara Megersa" };
+  }
+
   if (!guest) {
     return NextResponse.json({ error: "No guest has this code." }, { status: 404 });
   }

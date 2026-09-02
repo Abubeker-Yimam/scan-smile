@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { kindConfig, threadVars } from "@/lib/events";
 import { LOCALE_NAMES, isLocale } from "@/lib/i18n";
@@ -6,7 +7,6 @@ import { deleteInquiry, setInquiryHandled } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-/** "3 August 2026, 14:20" — enough to tell two messages from the same day apart. */
 function formatReceived(date: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
@@ -18,7 +18,6 @@ function formatReceived(date: Date): string {
 }
 
 export default async function InboxPage() {
-  // Unanswered first, then newest — the order you actually work through them in.
   const inquiries = await db.inquiry.findMany({
     orderBy: [{ handled: "asc" }, { createdAt: "desc" }],
   });
@@ -27,103 +26,146 @@ export default async function InboxPage() {
 
   return (
     <div className="space-y-10">
-      <section>
-        <h1 className="font-display text-3xl font-bold tracking-tight">Inbox</h1>
-        <p className="mt-2 font-body text-ash">
-          {inquiries.length === 0
-            ? "Messages from the contact page land here."
-            : `${waiting} waiting for an answer, ${inquiries.length} in total.`}
-        </p>
+      <section className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-coffee">Inbox</h1>
+          <p className="mt-1 font-body text-sm text-ash">
+            {inquiries.length === 0
+              ? "Messages from the public contact page land here."
+              : `${waiting} waiting for an answer, ${inquiries.length} total messages.`}
+          </p>
+        </div>
       </section>
 
       {inquiries.length === 0 ? (
-        <p className="border border-dashed border-cotton-3 px-6 py-10 text-center font-body text-ash">
-          Nothing yet. When someone writes from the contact page, their message appears here — and
-          stays here until you clear it.
-        </p>
+        <div className="rounded-xs border border-dashed border-cotton-3 bg-white/60 px-6 py-12 text-center font-body text-ash">
+          <p>No messages yet.</p>
+          <p className="mt-1 text-sm text-ash/80">
+            When someone submits an inquiry on the contact form, it will appear here.
+          </p>
+        </div>
       ) : (
-        <ul className="space-y-5">
+        <ul className="space-y-4">
           {inquiries.map((inquiry) => {
             const kind = kindConfig(inquiry.kind);
             const date = formatEventDate(inquiry.eventDate);
+            const phoneDigits = inquiry.phone ? inquiry.phone.replace(/[^\d+]/g, "") : "";
+
             return (
               <li
                 key={inquiry.id}
                 className={
-                  "flex items-stretch gap-5 border " +
-                  (inquiry.handled ? "border-cotton-3 opacity-60" : "border-coffee/25 bg-white")
+                  "flex items-stretch gap-4 sm:gap-5 rounded-xs border p-5 shadow-xs transition-all " +
+                  (inquiry.handled
+                    ? "border-cotton-3/80 bg-cotton/40 opacity-70"
+                    : "border-coffee/20 bg-white")
                 }
               >
                 <span
                   style={threadVars(inquiry.kind)}
-                  className="tibeb tibeb-v w-[6px] shrink-0"
+                  className="tibeb tibeb-v w-2 shrink-0 rounded-xs"
                   aria-hidden="true"
                 />
-                <div className="min-w-0 flex-1 py-5 pr-5">
-                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                    <p className="font-display text-xl font-semibold">{inquiry.name}</p>
-                    <p className="font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase">
-                      {kind.label}
-                      {date && ` · ${date}`}
-                      {inquiry.guestCount && ` · ${inquiry.guestCount} guests`}
-                    </p>
-                    <p className="ml-auto font-mono text-[0.6rem] tracking-[0.14em] text-ash">
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <p className="font-display text-xl font-bold text-coffee">{inquiry.name}</p>
+                      <span className="font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase">
+                        {kind.label}
+                        {date && ` · ${date}`}
+                        {inquiry.guestCount && ` · ~${inquiry.guestCount} guests`}
+                      </span>
+                    </div>
+
+                    <p className="font-mono text-[0.62rem] tracking-wider text-ash">
                       {formatReceived(inquiry.createdAt)}
                     </p>
                   </div>
 
-                  {/* The language they wrote in. Answering an Amharic enquiry
-                      in English is a small insult that costs nothing to avoid. */}
-                  {isLocale(inquiry.locale) && inquiry.locale !== "en" && (
-                    <p className="mt-1.5 inline-block border border-coffee/20 px-2 py-0.5 font-mono text-[0.6rem] tracking-[0.14em] text-coffee uppercase">
-                      {LOCALE_NAMES[inquiry.locale].name}
-                    </p>
-                  )}
+                  {/* Language & contact channels */}
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                    {isLocale(inquiry.locale) && inquiry.locale !== "en" && (
+                      <span className="rounded-xs border border-cotton-3 bg-cotton-2 px-2 py-0.5 font-mono text-[0.58rem] tracking-wider text-coffee uppercase font-medium">
+                        {LOCALE_NAMES[inquiry.locale].name}
+                      </span>
+                    )}
 
-                  <p className="mt-1.5 font-mono text-[0.72rem] text-ash">
                     <a
                       href={`mailto:${inquiry.email}`}
-                      className="underline underline-offset-4 hover:text-coffee"
+                      className="font-mono text-[0.72rem] text-ash underline underline-offset-4 hover:text-coffee"
                     >
                       {inquiry.email}
                     </a>
+
                     {inquiry.phone && (
                       <>
-                        {" · "}
+                        <span className="text-cotton-3">·</span>
                         <a
-                          href={`tel:${inquiry.phone.replace(/[^\d+]/g, "")}`}
-                          className="underline underline-offset-4 hover:text-coffee"
+                          href={`tel:${phoneDigits}`}
+                          className="font-mono text-[0.72rem] text-ash underline underline-offset-4 hover:text-coffee"
                         >
                           {inquiry.phone}
                         </a>
                       </>
                     )}
-                  </p>
+                  </div>
 
-                  {/* Whitespace preserved: people write in paragraphs and a wall
-                      of run-together text is harder to answer. */}
-                  <p className="mt-4 max-w-[46rem] font-body break-words whitespace-pre-wrap text-coffee">
+                  {/* Message body */}
+                  <p className="mt-4 max-w-[46rem] font-body text-sm leading-relaxed break-words whitespace-pre-wrap text-coffee/90 bg-cotton-2/40 p-3.5 rounded-xs border border-cotton-3/50">
                     {inquiry.message}
                   </p>
 
-                  <div className="mt-5 flex flex-wrap items-center gap-5">
-                    <form action={setInquiryHandled}>
-                      <input type="hidden" name="id" value={inquiry.id} />
-                      <input
-                        type="hidden"
-                        name="handled"
-                        value={inquiry.handled ? "false" : "true"}
-                      />
-                      <button className="font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4 hover:text-coffee">
-                        {inquiry.handled ? "Reopen" : "Mark answered"}
-                      </button>
-                    </form>
-                    <form action={deleteInquiry}>
-                      <input type="hidden" name="id" value={inquiry.id} />
-                      <button className="font-mono text-[0.62rem] tracking-[0.16em] text-[#8E1F2F] uppercase underline underline-offset-4 hover:text-ink">
-                        Delete
-                      </button>
-                    </form>
+                  {/* Action row */}
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-cotton-3/60 pt-3">
+                    <div className="flex flex-wrap items-center gap-3 font-mono text-[0.62rem] tracking-wider uppercase">
+                      {/* Convert to Event */}
+                      <Link
+                        href={`/admin?inquiryId=${inquiry.id}#book-event`}
+                        className="inline-flex items-center gap-1.5 rounded-xs border border-gold bg-gold/15 px-3 py-1.5 text-[#855B18] font-semibold hover:bg-gold hover:text-ink transition-colors"
+                      >
+                        <span>+ Book as Event</span>
+                      </Link>
+
+                      {/* Call button */}
+                      {inquiry.phone && (
+                        <a
+                          href={`tel:${phoneDigits}`}
+                          className="inline-flex items-center gap-1 rounded-xs border border-cotton-3 bg-white px-2.5 py-1.5 text-coffee hover:border-coffee transition-colors"
+                        >
+                          <span>Call</span>
+                        </a>
+                      )}
+
+                      {/* Email button */}
+                      <a
+                        href={`mailto:${inquiry.email}`}
+                        className="inline-flex items-center gap-1 rounded-xs border border-cotton-3 bg-white px-2.5 py-1.5 text-coffee hover:border-coffee transition-colors"
+                      >
+                        <span>Email</span>
+                      </a>
+                    </div>
+
+                    <div className="flex items-center gap-4 font-mono text-[0.62rem] tracking-wider uppercase">
+                      <form action={setInquiryHandled}>
+                        <input type="hidden" name="id" value={inquiry.id} />
+                        <input
+                          type="hidden"
+                          name="handled"
+                          value={inquiry.handled ? "false" : "true"}
+                        />
+                        <button className="text-ash underline underline-offset-4 hover:text-coffee cursor-pointer">
+                          {inquiry.handled ? "Reopen" : "Mark answered"}
+                        </button>
+                      </form>
+
+                      <form action={deleteInquiry}>
+                        <input type="hidden" name="id" value={inquiry.id} />
+                        <button className="text-[#8E1F2F] underline underline-offset-4 hover:text-ink cursor-pointer">
+                          Delete
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 </div>
               </li>
