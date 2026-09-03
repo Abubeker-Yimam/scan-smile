@@ -1,72 +1,95 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import QRCode from "qrcode";
 import { db } from "@/lib/db";
 import { guestUrl } from "@/lib/codes";
 
-export const runtime = "nodejs";
-
 /**
- * The printable code for one guest.
- *   /api/qr/ABC1234              → 1024px PNG for the screen
- *   /api/qr/ABC1234?size=2400    → press-ready PNG
- *   /api/qr/ABC1234?format=svg   → vector, for anything going to a printer
- *   /api/qr/ABC1234?download=1   → same image, as a file
+ * GET /api/qr/[code]
+ *
+ * Returns a QR code image for a guest's unique code.
+ *
+ * Query params:
+ *   size     — pixel size of the PNG (default: 600, max: 2400)
+ *   format   — "png" (default) | "svg"
+ *   download — if set to "1", adds Content-Disposition: attachment
+ *
+ * The code is looked up in the database so we can confirm it exists, but the
+ * QR image itself is generated fresh each time — no storage cost, instant
+ * re-generation if the base URL ever changes.
  */
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const normalized = code.toUpperCase();
+  const { searchParams } = request.nextUrl;
 
-  let guest = await db.guest
-    .findUnique({
-      where: { code: normalized },
-      select: { name: true },
-    })
-    .catch(() => null);
+  const format = searchParams.get("format") === "svg" ? "svg" : "png";
+  const download = searchParams.get("download") === "1";
+  const rawSize = parseInt(searchParams.get("size") ?? "600", 10);
+  const size = Math.min(Math.max(Number.isNaN(rawSize) ? 600 : rawSize, 64), 2400);
 
-  // Fallback for demo code so landing page never displays a broken image
-  if (!guest && normalized === "DEMO247") {
-    guest = { name: "Sara Megersa" };
-  }
+  // Verify the code exists. An unknown code returns 404 rather than generating
+  // a QR that points at a dead page — a host copy-pasting a wrong code finds
+  // out here rather than after printing.
+  const guest = await db.guest.findUnique({
+    where: { code: code.toUpperCase() },
+    select: { id: true, name: true },
+  });
 
   if (!guest) {
-    return NextResponse.json({ error: "No guest has this code." }, { status: 404 });
+    return new NextResponse("Guest not found", { status: 404 });
   }
 
-  const url = new URL(request.url);
-  const format = url.searchParams.get("format") === "svg" ? "svg" : "png";
-  const size = Math.min(Math.max(Number(url.searchParams.get("size")) || 1024, 128), 4000);
-  const download = url.searchParams.get("download") === "1";
+  const url = guestUrl(code.toUpperCase());
 
-  const options = {
-    errorCorrectionLevel: "Q" as const,
-    margin: 2,
-    width: size,
-    color: { dark: "#14100DFF", light: "#FFFFFFFF" },
-  };
-
-  const filename = `${normalized}-${guest.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.${format}`;
-  const disposition = `${download ? "attachment" : "inline"}; filename="${filename}"`;
+  const headers: Record<string, string> = {};
 
   if (format === "svg") {
-    const svg = await QRCode.toString(guestUrl(normalized), { ...options, type: "svg" });
-    return new NextResponse(svg, {
-      headers: {
-        "Content-Type": "image/svg+xml",
-        "Content-Disposition": disposition,
-        "Cache-Control": "public, max-age=3600",
-      },
-    });
+    let svgString: string;
+    try {
+      svgString = await QRCode.toString(url, {
+        type: "svg",
+        errorCorrectionLevel: "H",
+        margin: 2,
+        color: { dark: "#14100d", light: "#faf7f0" },
+      });
+    } catch {
+      return new NextResponse("QR generation failed", { status: 500 });
+    }
+
+    headers["Content-Type"] = "image/svg+xml";
+    if (download) {
+      headers["Content-Disposition"] = `attachment; filename="${code.toUpperCase()}.svg"`;
+    }
+    return new NextResponse(svgString, { headers });
   }
 
-  const png = await QRCode.toBuffer(guestUrl(normalized), { ...options, type: "png" });
-  return new NextResponse(new Uint8Array(png), {
-    headers: {
-      "Content-Type": "image/png",
-      "Content-Disposition": disposition,
-      "Cache-Control": "public, max-age=3600",
-    },
-  });
+  // PNG — rendered to a Buffer via the canvas API built into the qrcode package
+  let buffer: Buffer;
+  try {
+    const dataUrl = await QRCode.toDataURL(url, {
+      type: "image/png",
+      errorCorrectionLevel: "H",
+      margin: 2,
+      width: size,
+      color: { dark: "#14100d", light: "#faf7f0" },
+    });
+    // dataUrl is "data:image/png;base64,..."
+    const base64 = dataUrl.split(",")[1];
+    buffer = Buffer.from(base64, "base64");
+  } catch {
+    return new NextResponse("QR generation failed", { status: 500 });
+  }
+
+  headers["Content-Type"] = "image/png";
+  // Cache for 5 minutes — codes don't change, but BASE_URL can be reconfigured
+  headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60";
+  if (download) {
+    headers["Content-Disposition"] = `attachment; filename="${code.toUpperCase()}.png"`;
+  }
+
+  // Buffer is not directly assignable to BodyInit in strict TS; Uint8Array is.
+  // new Uint8Array(buffer) shares the underlying ArrayBuffer — no copy.
+  return new NextResponse(new Uint8Array(buffer), { headers });
 }
