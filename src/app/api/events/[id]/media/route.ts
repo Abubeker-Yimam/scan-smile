@@ -81,9 +81,13 @@ export async function POST(
     const guestIdOrCode = (form.get("guestId") as string | null)?.trim() || null;
     const caption = (form.get("caption") as string | null)?.trim() || null;
     const rawDuration = form.get("duration");
-    const duration = rawDuration ? parseFloat(String(rawDuration)) : null;
+    const parsed = rawDuration ? parseFloat(String(rawDuration)) : null;
+    const duration =
+      parsed !== null && isFinite(parsed) && !isNaN(parsed) && parsed > 0
+        ? parsed
+        : null;
 
-    if (duration !== null && !isNaN(duration) && duration > GUEST_MEDIA_MAX_VIDEO_DURATION_SECONDS + 2) {
+    if (duration !== null && duration > GUEST_MEDIA_MAX_VIDEO_DURATION_SECONDS + 2) {
       return NextResponse.json(
         {
           error: `Video length exceeds maximum allowed duration (${GUEST_MEDIA_MAX_VIDEO_DURATION_SECONDS} seconds).`,

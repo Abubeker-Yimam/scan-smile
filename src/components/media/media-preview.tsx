@@ -40,7 +40,7 @@ export function MediaPreview({
           <span className="inline-flex items-center px-2 py-0.5 rounded-xs text-[0.62rem] font-mono uppercase tracking-wider bg-gold/15 text-coffee font-semibold">
             {mediaType === "photo" ? "Photo Preview" : "Video Clip"}
           </span>
-          {duration !== undefined && duration !== null && duration > 0 && (
+          {duration !== undefined && duration !== null && duration > 0 && isFinite(duration) && (
             <span className="text-[0.68rem] font-mono text-ash">
               {duration.toFixed(1)}s
             </span>

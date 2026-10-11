@@ -125,16 +125,35 @@ async function compressImageClient(file: File | Blob): Promise<Blob> {
 /** Checks video duration from a Blob using a temporary video element */
 function checkVideoDuration(blob: Blob): Promise<number> {
   return new Promise((resolve) => {
+    let resolved = false;
+    const finish = (val: number) => {
+      if (!resolved) {
+        resolved = true;
+        try {
+          URL.revokeObjectURL(url);
+        } catch {}
+        resolve(val);
+      }
+    };
+
     const video = document.createElement("video");
     video.preload = "metadata";
     const url = URL.createObjectURL(blob);
+    const timer = setTimeout(() => finish(0), 1500);
+
     video.onloadedmetadata = () => {
-      URL.revokeObjectURL(url);
-      resolve(video.duration || 0);
+      clearTimeout(timer);
+      const d = video.duration;
+      // Chromium MediaRecorder produces WebM blobs with duration = Infinity
+      if (typeof d === "number" && isFinite(d) && !isNaN(d) && d > 0) {
+        finish(d);
+      } else {
+        finish(0);
+      }
     };
     video.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(0);
+      clearTimeout(timer);
+      finish(0);
     };
     video.src = url;
   });
@@ -161,6 +180,7 @@ export function MediaCaptureModal({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordStartTimeRef = useRef<number>(0);
 
   // Selected media pending review
   const [stagedFile, setStagedFile] = useState<File | Blob | null>(null);
@@ -363,13 +383,20 @@ export function MediaCaptureModal({
 
         const preview = URL.createObjectURL(videoBlob);
         const duration = await checkVideoDuration(videoBlob);
+        const elapsedMs = recordStartTimeRef.current ? Date.now() - recordStartTimeRef.current : 0;
+        const elapsedSeconds = Math.max(1, Math.round((elapsedMs / 1000) * 10) / 10);
+        const finalDuration =
+          typeof duration === "number" && isFinite(duration) && duration > 0
+            ? Math.round(duration * 10) / 10
+            : elapsedSeconds;
 
         setStagedFile(videoBlob);
         setStagedPreviewUrl(preview);
         setStagedMediaType("video");
-        setStagedDuration(duration || recordingSeconds);
+        setStagedDuration(finalDuration);
       };
 
+      recordStartTimeRef.current = Date.now();
       recorder.start(1000);
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
@@ -421,14 +448,14 @@ export function MediaCaptureModal({
 
     if (isVideo) {
       const duration = await checkVideoDuration(file);
-      if (duration > GUEST_MEDIA_MAX_VIDEO_DURATION_SECONDS + 2) {
+      if (duration > 0 && isFinite(duration) && duration > GUEST_MEDIA_MAX_VIDEO_DURATION_SECONDS + 2) {
         alert(
           `Video is ${Math.round(duration)} seconds long. Max allowed length is ${GUEST_MEDIA_MAX_VIDEO_DURATION_SECONDS} seconds.`
         );
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
-      setStagedDuration(duration);
+      setStagedDuration(duration > 0 && isFinite(duration) ? Math.round(duration * 10) / 10 : null);
     } else {
       setStagedDuration(null);
     }
@@ -481,7 +508,9 @@ export function MediaCaptureModal({
     formData.append("mediaType", stagedMediaType);
     if (guestId) formData.append("guestId", guestId);
     if (caption) formData.append("caption", caption);
-    if (stagedDuration) formData.append("duration", String(stagedDuration));
+    if (stagedDuration !== null && isFinite(stagedDuration) && stagedDuration > 0) {
+      formData.append("duration", String(Math.round(stagedDuration * 10) / 10));
+    }
 
     setUploadStage("uploading");
     setTotalBytes(fileToUpload.size);

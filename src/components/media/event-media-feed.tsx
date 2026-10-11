@@ -86,7 +86,7 @@ export function EventMediaFeed({
                       </svg>
                     </span>
                   </div>
-                  {item.duration && (
+                  {item.duration && isFinite(item.duration) && item.duration > 0 && (
                     <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-xs bg-ink/75 text-[0.6rem] font-mono text-cotton font-semibold">
                       {Math.round(item.duration)}s
                     </span>
