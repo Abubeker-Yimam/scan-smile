@@ -44,12 +44,17 @@ export async function GET(
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  const fullPath = path.join(UPLOAD_DIR, name);
+  let fullPath = path.join(UPLOAD_DIR, name);
   let info;
   try {
     info = await stat(fullPath);
   } catch {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
+    try {
+      fullPath = path.join("/tmp", "uploads", name);
+      info = await stat(fullPath);
+    } catch {
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
   }
   if (!info.isFile()) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });

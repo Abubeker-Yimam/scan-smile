@@ -141,8 +141,9 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("Media upload error:", error);
+    const message = error instanceof Error ? error.message : "Upload failed due to a server error. Please try again.";
     return NextResponse.json(
-      { error: "Upload failed due to a server error. Please try again." },
+      { error: message },
       { status: 500 }
     );
   }

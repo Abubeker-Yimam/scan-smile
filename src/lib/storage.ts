@@ -25,28 +25,44 @@ export type StorageDriver = {
   urlFor(key: string): string;
 };
 
+const isVercel = Boolean(process.env.VERCEL);
+
 /** Disk location for the local driver. Also read by the `/media` route. */
 export const UPLOAD_DIR =
-  process.env.UPLOAD_DIR ?? path.join(process.cwd(), "public", "uploads");
+  process.env.UPLOAD_DIR ??
+  (isVercel ? path.join("/tmp", "uploads") : path.join(process.cwd(), "public", "uploads"));
 
 /** True when local uploads land somewhere Next serves as a static asset. */
-const servedStatically = !process.env.UPLOAD_DIR;
+const servedStatically = !process.env.UPLOAD_DIR && !isVercel;
 
 const localDriver: StorageDriver = {
   name: "local",
   async put(key, body) {
-    await mkdir(UPLOAD_DIR, { recursive: true });
-    await writeFile(path.join(UPLOAD_DIR, key), body);
+    try {
+      await mkdir(UPLOAD_DIR, { recursive: true });
+      await writeFile(path.join(UPLOAD_DIR, key), body);
+    } catch (err: unknown) {
+      // In serverless environments like Vercel with read-only root, fall back to /tmp
+      if ((err as { code?: string })?.code === "EROFS" || !isVercel) {
+        const fallbackDir = path.join("/tmp", "uploads");
+        await mkdir(fallbackDir, { recursive: true });
+        await writeFile(path.join(fallbackDir, key), body);
+      } else {
+        throw err;
+      }
+    }
   },
   async remove(key) {
     // Missing files are not an error: the row is going away regardless, and a
     // half-deleted record is worse than an orphan.
     await unlink(path.join(UPLOAD_DIR, key)).catch(() => {});
+    await unlink(path.join("/tmp", "uploads", key)).catch(() => {});
   },
   urlFor(key) {
     return servedStatically ? `/uploads/${key}` : `/media/${key}`;
   },
 };
+
 
 function s3Driver(): StorageDriver {
   const bucket = required("S3_BUCKET");

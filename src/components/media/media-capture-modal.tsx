@@ -3,8 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   GUEST_MEDIA_ACCEPT,
-  GUEST_MEDIA_IMAGE_MAX_EDGE,
-  GUEST_MEDIA_IMAGE_QUALITY,
   GUEST_MEDIA_MAX_BYTES,
   GUEST_MEDIA_MAX_VIDEO_DURATION_SECONDS,
   formatBytes,
@@ -43,35 +41,84 @@ export interface MediaCaptureModalProps {
 
 type CaptureTab = "camera-photo" | "camera-video" | "gallery";
 
-/** Downscales an image File/Blob on canvas to lightweight WebP */
+/** Fast, resilient client-side downscaling to keep uploads well below Vercel's 4.5MB limit */
 async function compressImageClient(file: File | Blob): Promise<Blob> {
   return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, GUEST_MEDIA_IMAGE_MAX_EDGE / Math.max(img.width, img.height));
-      const width = Math.round(img.width * scale);
-      const height = Math.round(img.height * scale);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return resolve(file);
-
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(
-        (blob) => resolve(blob || file),
-        "image/webp",
-        GUEST_MEDIA_IMAGE_QUALITY / 100
-      );
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
+    // 2.5s safety timeout so image processing never hangs
+    const timeout = setTimeout(() => {
+      console.warn("Client compression timed out, proceeding with original file");
       resolve(file);
+    }, 2500);
+
+    const maxEdge = 1600;
+    const quality = 0.82;
+
+    const processCanvas = (sourceWidth: number, sourceHeight: number, drawSource: CanvasImageSource) => {
+      clearTimeout(timeout);
+      try {
+        const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight));
+        const width = Math.round(sourceWidth * scale);
+        const height = Math.round(sourceHeight * scale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(file);
+
+        ctx.drawImage(drawSource, 0, 0, width, height);
+        canvas.toBlob(
+          (webpBlob) => {
+            if (webpBlob && webpBlob.size > 0) {
+              resolve(webpBlob);
+            } else {
+              // Fallback to JPEG if WebP blob is unsupported
+              canvas.toBlob(
+                (jpegBlob) => resolve(jpegBlob || file),
+                "image/jpeg",
+                quality
+              );
+            }
+          },
+          "image/webp",
+          quality
+        );
+      } catch (err) {
+        console.warn("Canvas compression failed, using original:", err);
+        resolve(file);
+      }
     };
-    img.src = url;
+
+    // Fast path: createImageBitmap (browser native background decode)
+    if (typeof createImageBitmap === "function") {
+      createImageBitmap(file)
+        .then((bitmap) => {
+          processCanvas(bitmap.width, bitmap.height, bitmap);
+          bitmap.close();
+        })
+        .catch(() => {
+          // Fallback to Image element
+          loadViaImageElement();
+        });
+      return;
+    }
+
+    loadViaImageElement();
+
+    function loadViaImageElement() {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        processCanvas(img.naturalWidth || img.width, img.naturalHeight || img.height, img);
+      };
+      img.onerror = () => {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    }
   });
 }
 
@@ -134,6 +181,8 @@ export function MediaCaptureModal({
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
+
+  const isUploading = uploadStage === "preparing" || uploadStage === "uploading" || uploadStage === "processing";
 
   // Stop active camera stream
   const stopStream = useCallback(() => {
@@ -404,20 +453,20 @@ export function MediaCaptureModal({
 
   // Confirm and Upload with XMLHttpRequest progress tracking
   const handleConfirmUpload = async () => {
-    if (!stagedFile) return;
+    if (!stagedFile || isUploading) return;
 
     setUploadStage("preparing");
     setUploadError(null);
-    setUploadProgress(0);
+    setUploadProgress(5);
 
     let fileToUpload: Blob = stagedFile;
 
-    // Compress photo client-side if it's an image
+    // Compress photo client-side if it's an image to avoid Vercel 4.5MB payload limit
     if (stagedMediaType === "photo") {
       try {
         fileToUpload = await compressImageClient(stagedFile);
       } catch (err) {
-        console.warn("Client compression failed, proceeding with original:", err);
+        console.warn("Client compression error, proceeding with original:", err);
       }
     }
 
@@ -491,7 +540,7 @@ export function MediaCaptureModal({
       setUploadError("Upload timed out. Tap Retry to send again.");
     };
 
-    xhr.open("POST", `/api/events/${eventId}/media`);
+    xhr.open("POST", `/api/events/${encodeURIComponent(eventId)}/media`);
     xhr.send(formData);
   };
 
@@ -508,51 +557,108 @@ export function MediaCaptureModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-ink/80 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-ink/80 backdrop-blur-sm animate-fade-in"
       role="dialog"
       aria-modal="true"
       style={themeStyle}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-xs bg-cotton border border-cotton-3 shadow-2xl flex flex-col max-h-[92vh]"
+        className="w-full max-w-lg overflow-hidden rounded-xs bg-cotton border border-cotton-3 shadow-2xl flex flex-col max-h-[94vh]"
         style={{ boxShadow: "0 25px 60px -15px rgba(0,0,0,0.8)" }}
       >
         {/* Top Tibeb woven banner */}
-        <div className="tibeb h-2.5 w-full" aria-hidden="true" />
+        <div className="tibeb h-2.5 w-full shrink-0" aria-hidden="true" />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-cotton-3 bg-cotton">
-          <div>
-            <h2 className="font-display text-xl font-bold text-coffee">
-              {stagedFile ? "Review Your Moment" : "Capture Event Moment"}
-            </h2>
-            <p className="font-mono text-[0.62rem] uppercase tracking-wider text-ash">
-              {guestName ? `For ${guestName}` : "Share with the celebration"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              handleResetStaged();
-              onClose();
-            }}
-            className="rounded-xs p-1 text-ash hover:text-coffee hover:bg-cotton-2 transition-colors"
-            aria-label="Close dialog"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="6" />
-            </svg>
-          </button>
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-cotton-3 bg-cotton shrink-0">
+          {stagedFile && !completedMedia ? (
+            /* Review Header with explicit Back and Share actions */
+            <>
+              <button
+                type="button"
+                onClick={handleResetStaged}
+                disabled={isUploading}
+                className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-wider text-ash hover:text-coffee py-1 px-1.5 transition-colors disabled:opacity-40 cursor-pointer"
+                title="Discard and retake"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                <span>Back</span>
+              </button>
+
+              <div className="text-center">
+                <h2 className="font-display text-lg font-bold text-coffee leading-tight">
+                  Review Your Moment
+                </h2>
+                <p className="font-mono text-[0.62rem] uppercase tracking-wider text-ash">
+                  {guestName ? `For ${guestName}` : "Share with the celebration"}
+                </p>
+              </div>
+
+              {/* Explicit top-right Share button */}
+              <button
+                type="button"
+                onClick={handleConfirmUpload}
+                disabled={isUploading}
+                className="inline-flex items-center gap-1.5 rounded-xs border border-coffee bg-coffee px-3 py-1.5 font-mono text-[0.65rem] uppercase tracking-wider text-cotton hover:bg-ink transition-all font-semibold disabled:opacity-50 shadow-xs cursor-pointer active:scale-95"
+                title="Upload moment"
+              >
+                {isUploading ? (
+                  <>
+                    <svg className="w-3.5 h-3.5 animate-spin text-gold" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span>Saving…</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span>Share</span>
+                  </>
+                )}
+              </button>
+            </>
+          ) : (
+            /* Standard Capture Header */
+            <>
+              <div>
+                <h2 className="font-display text-xl font-bold text-coffee">
+                  Capture Event Moment
+                </h2>
+                <p className="font-mono text-[0.62rem] uppercase tracking-wider text-ash">
+                  {guestName ? `For ${guestName}` : "Share with the celebration"}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleResetStaged();
+                  onClose();
+                }}
+                className="rounded-xs p-1.5 text-ash hover:text-coffee hover:bg-cotton-2 transition-colors cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="6" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
 
-        {/* Modal Body */}
-        <div className="p-5 overflow-y-auto flex-1">
+        {/* Modal Scrollable Body */}
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1">
           {completedMedia ? (
             /* Success View */
             <div className="text-center py-6 space-y-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-[#1E5A46]/10 flex items-center justify-center text-[#1E5A46]">
-                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <div className="mx-auto w-14 h-14 rounded-full bg-[#1E5A46]/10 flex items-center justify-center text-[#1E5A46]">
+                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
@@ -572,37 +678,25 @@ export function MediaCaptureModal({
                     setCompletedMedia(null);
                     handleResetStaged();
                   }}
-                  className="rounded-xs border border-coffee bg-white px-5 py-2.5 font-mono text-xs uppercase tracking-wider text-coffee hover:bg-cotton-2 transition-colors"
+                  className="rounded-xs border border-coffee bg-white px-5 py-2.5 font-mono text-xs uppercase tracking-wider text-coffee hover:bg-cotton-2 transition-colors cursor-pointer"
                 >
                   Capture Another
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-xs border border-coffee bg-coffee px-5 py-2.5 font-mono text-xs uppercase tracking-wider text-cotton hover:bg-ink transition-colors font-semibold"
+                  className="rounded-xs border border-coffee bg-coffee px-5 py-2.5 font-mono text-xs uppercase tracking-wider text-cotton hover:bg-ink transition-colors font-semibold cursor-pointer shadow-xs"
                 >
                   Done
                 </button>
               </div>
             </div>
           ) : stagedFile && stagedPreviewUrl ? (
-            /* Media Review & Caption View */
-            <div className="space-y-4">
-              <MediaPreview
-                mediaUrl={stagedPreviewUrl}
-                mediaType={stagedMediaType}
-                fileSize={stagedFile.size}
-                duration={stagedDuration}
-                caption={caption}
-                onCaptionChange={setCaption}
-                onRetake={handleResetStaged}
-                onDelete={handleResetStaged}
-                onConfirm={handleConfirmUpload}
-                isProcessing={uploadStage !== "idle"}
-              />
-
+            /* Media Review View */
+            <div className="space-y-3.5">
+              {/* In-Flight Upload Progress Bar - Displayed right at top for immediate feedback */}
               {uploadStage !== "idle" && (
-                <div className="pt-2">
+                <div className="rounded-xs border border-gold/40 bg-cotton-2/80 p-3 shadow-xs space-y-2">
                   <UploadProgressBar
                     progress={uploadProgress}
                     stage={uploadStage}
@@ -614,6 +708,21 @@ export function MediaCaptureModal({
                   />
                 </div>
               )}
+
+              {/* Review Component (Image/Video + Caption) */}
+              <MediaPreview
+                mediaUrl={stagedPreviewUrl}
+                mediaType={stagedMediaType}
+                fileSize={stagedFile.size}
+                duration={stagedDuration}
+                caption={caption}
+                onCaptionChange={setCaption}
+                onRetake={handleResetStaged}
+                onDelete={handleResetStaged}
+                onConfirm={handleConfirmUpload}
+                isProcessing={isUploading}
+                hideBottomActions={true}
+              />
             </div>
           ) : (
             /* Live Camera & Picker View */
@@ -623,7 +732,7 @@ export function MediaCaptureModal({
                 <button
                   type="button"
                   onClick={() => switchTab("camera-photo")}
-                  className={`flex-1 pb-2.5 text-center transition-colors border-b-2 ${
+                  className={`flex-1 pb-2.5 text-center transition-colors border-b-2 cursor-pointer ${
                     activeTab === "camera-photo"
                       ? "border-gold text-coffee font-semibold"
                       : "border-transparent text-ash hover:text-coffee"
@@ -634,7 +743,7 @@ export function MediaCaptureModal({
                 <button
                   type="button"
                   onClick={() => switchTab("camera-video")}
-                  className={`flex-1 pb-2.5 text-center transition-colors border-b-2 ${
+                  className={`flex-1 pb-2.5 text-center transition-colors border-b-2 cursor-pointer ${
                     activeTab === "camera-video"
                       ? "border-gold text-coffee font-semibold"
                       : "border-transparent text-ash hover:text-coffee"
@@ -645,7 +754,7 @@ export function MediaCaptureModal({
                 <button
                   type="button"
                   onClick={() => switchTab("gallery")}
-                  className={`flex-1 pb-2.5 text-center transition-colors border-b-2 ${
+                  className={`flex-1 pb-2.5 text-center transition-colors border-b-2 cursor-pointer ${
                     activeTab === "gallery"
                       ? "border-gold text-coffee font-semibold"
                       : "border-transparent text-ash hover:text-coffee"
@@ -662,7 +771,7 @@ export function MediaCaptureModal({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 rounded-xs border border-[#8E1F2F] bg-white px-3 py-1 font-mono text-[0.62rem] uppercase tracking-wider text-[#8E1F2F] hover:bg-[#8E1F2F] hover:text-white transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-xs border border-[#8E1F2F] bg-white px-3 py-1 font-mono text-[0.62rem] uppercase tracking-wider text-[#8E1F2F] hover:bg-[#8E1F2F] hover:text-white transition-colors cursor-pointer"
                   >
                     <span>Open Device Gallery Instead</span>
                   </button>
@@ -688,7 +797,7 @@ export function MediaCaptureModal({
                       type="button"
                       onClick={toggleFacingMode}
                       disabled={isRecording}
-                      className="p-2 rounded-full bg-ink/60 text-white backdrop-blur-md hover:bg-ink/80 transition-all disabled:opacity-40"
+                      className="p-2 rounded-full bg-ink/60 text-white backdrop-blur-md hover:bg-ink/80 transition-all disabled:opacity-40 cursor-pointer"
                       title="Flip camera"
                     >
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -777,6 +886,48 @@ export function MediaCaptureModal({
             </div>
           )}
         </div>
+
+        {/* Sticky Modal Footer (When Reviewing a Captured Media Item) */}
+        {stagedFile && !completedMedia && (
+          <div className="px-4 py-3 border-t border-cotton-3 bg-cotton flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={handleResetStaged}
+              disabled={isUploading}
+              className="w-1/3 rounded-xs border border-cotton-3 bg-white px-3 py-2.5 font-mono text-xs uppercase tracking-wider text-ash hover:text-coffee hover:border-gold transition-all disabled:opacity-40 flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 4v6h6" />
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
+              <span>Retake</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleConfirmUpload}
+              disabled={isUploading}
+              className="w-2/3 rounded-xs border border-coffee bg-coffee px-4 py-2.5 font-mono text-xs uppercase tracking-wider text-cotton hover:bg-ink transition-all font-semibold disabled:opacity-50 shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              {isUploading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin text-gold" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <span>{uploadStage === "preparing" ? "Optimizing…" : `Uploading ${uploadProgress}%`}</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span>Confirm &amp; Share Moment</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

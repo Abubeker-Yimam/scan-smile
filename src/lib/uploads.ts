@@ -219,46 +219,43 @@ export async function saveGuestMedia(file: FormDataEntryValue | null): Promise<S
 
   if (isImage) {
     const input = Buffer.from(await file.arrayBuffer());
-    const image = sharp(input, { limitInputPixels: IMAGE_MAX_PIXELS, failOn: "error" });
+    let output: Buffer = input;
+    let mimeType = "image/webp";
+    let extension = ".webp";
 
-    let width: number | undefined;
-    let height: number | undefined;
     try {
-      ({ width, height } = await image.metadata());
-    } catch {
-      throw new UploadError(
-        `${file.name} could not be read as an image. Try taking another shot or choosing from your photo gallery.`
-      );
+      const image = sharp(input, { limitInputPixels: IMAGE_MAX_PIXELS, failOn: "none" });
+      const metadata = await image.metadata().catch(() => null);
+
+      if (metadata && metadata.width && metadata.height) {
+        output = await image
+          .rotate()
+          .resize({
+            width: GUEST_MEDIA_IMAGE_MAX_EDGE,
+            height: GUEST_MEDIA_IMAGE_MAX_EDGE,
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .webp({ quality: GUEST_MEDIA_IMAGE_QUALITY })
+          .toBuffer();
+      } else {
+        // Fallback to original buffer
+        mimeType = rawType || "image/jpeg";
+        extension = rawType.includes("png") ? ".png" : rawType.includes("webp") ? ".webp" : ".jpg";
+      }
+    } catch (sharpError) {
+      console.warn("Sharp re-encoding warning, saving original buffer:", sharpError);
+      mimeType = rawType || "image/jpeg";
+      extension = rawType.includes("png") ? ".png" : rawType.includes("webp") ? ".webp" : ".jpg";
+      output = input;
     }
 
-    if (!width || !height) {
-      throw new UploadError(`${file.name} has no readable image dimensions.`);
-    }
-
-    let output: Buffer;
-    try {
-      output = await image
-        .rotate()
-        .resize({
-          width: GUEST_MEDIA_IMAGE_MAX_EDGE,
-          height: GUEST_MEDIA_IMAGE_MAX_EDGE,
-          fit: "inside",
-          withoutEnlargement: true,
-        })
-        .webp({ quality: GUEST_MEDIA_IMAGE_QUALITY })
-        .toBuffer();
-    } catch {
-      throw new UploadError(
-        `${file.name} could not be processed. Please try another photo.`
-      );
-    }
-
-    const name = key(".webp");
-    await storage().put(name, output, "image/webp");
+    const name = key(extension);
+    await storage().put(name, output, mimeType);
     return {
       url: storage().urlFor(name),
       mediaType: "photo",
-      mimeType: "image/webp",
+      mimeType,
       fileSize: output.length,
     };
   }
