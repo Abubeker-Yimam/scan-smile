@@ -4,16 +4,20 @@ import { useState } from "react";
 
 export function EventTabs({
   guestCount,
+  mediaCount = 0,
   guestsContent,
   settingsContent,
   printContent,
+  mediaContent,
 }: {
   guestCount: number;
+  mediaCount?: number;
   guestsContent: React.ReactNode;
   settingsContent: React.ReactNode;
   printContent: React.ReactNode;
+  mediaContent?: React.ReactNode;
 }) {
-  const [activeTab, setActiveTab] = useState<"guests" | "settings" | "print">("guests");
+  const [activeTab, setActiveTab] = useState<"guests" | "media" | "settings" | "print">("guests");
 
   return (
     <div className="space-y-8">
@@ -32,6 +36,20 @@ export function EventTabs({
           >
             Guests &amp; Seating ({guestCount})
           </button>
+          {mediaContent && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("media")}
+              className={
+                "pb-3.5 pt-1 border-b-2 transition-colors cursor-pointer " +
+                (activeTab === "media"
+                  ? "border-gold text-coffee font-semibold"
+                  : "border-transparent text-ash hover:text-coffee hover:border-cotton-3")
+              }
+            >
+              Captured Moments ({mediaCount})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setActiveTab("settings")}
@@ -62,6 +80,7 @@ export function EventTabs({
       {/* Tab Content Panels */}
       <div>
         {activeTab === "guests" && <div>{guestsContent}</div>}
+        {activeTab === "media" && mediaContent && <div>{mediaContent}</div>}
         {activeTab === "settings" && <div>{settingsContent}</div>}
         {activeTab === "print" && <div>{printContent}</div>}
       </div>

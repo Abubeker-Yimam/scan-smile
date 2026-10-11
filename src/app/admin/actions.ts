@@ -134,6 +134,7 @@ export async function deleteEvent(form: FormData) {
     select: {
       coverImageUrl: true,
       guests: { select: { photoUrl: true, videoUrl: true } },
+      media: { select: { url: true } },
     },
   });
 
@@ -143,6 +144,7 @@ export async function deleteEvent(form: FormData) {
     await deleteUploads([
       event.coverImageUrl,
       ...event.guests.flatMap((guest) => [guest.photoUrl, guest.videoUrl]),
+      ...event.media.map((m) => m.url),
     ]);
   }
 

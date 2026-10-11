@@ -40,6 +40,7 @@ model Event {
   coverImageUrl   String?
 
   guests    Guest[]
+  media     EventMedia[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -66,6 +67,7 @@ model Guest {
   firstScannedAt DateTime?
   lastScannedAt  DateTime?
 
+  capturedMedia  EventMedia[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -103,4 +105,26 @@ model Inquiry {
   createdAt DateTime @default(now())
 
   @@index([handled, createdAt])
+}
+
+/// Media (photos and short video clips) captured and uploaded by attendees during an event.
+model EventMedia {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  guestId   String?
+  guest     Guest?   @relation(fields: [guestId], references: [id], onDelete: SetNull)
+
+  /// "photo" | "video"
+  mediaType String
+  url       String
+  caption   String?
+  mimeType  String?
+  fileSize  Int?
+  duration  Float?
+
+  createdAt DateTime @default(now())
+
+  @@index([eventId, createdAt])
+  @@index([guestId])
 }

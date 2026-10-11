@@ -71,3 +71,37 @@ export function formatBytes(bytes: number): string {
   const mb = bytes / MB;
   return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)}MB`;
 }
+
+/**
+ * Guest-captured event media limits.
+ * Attendees take photos or record short celebratory videos directly on their phones.
+ */
+export const GUEST_MEDIA_MAX_BYTES = 25 * MB;
+export const GUEST_MEDIA_MAX_VIDEO_DURATION_SECONDS = 30;
+export const GUEST_MEDIA_IMAGE_MAX_EDGE = 1920;
+export const GUEST_MEDIA_IMAGE_QUALITY = 82;
+export const GUEST_MEDIA_ACCEPT = "image/*,video/*";
+
+export const ALLOWED_GUEST_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
+
+export const ALLOWED_GUEST_VIDEO_TYPES = new Set([
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+]);
+
+export type MediaType = "photo" | "video";
+
+export function detectMediaType(mimeType: string): MediaType | null {
+  const clean = mimeType.toLowerCase().split(";")[0].trim();
+  if (ALLOWED_GUEST_IMAGE_TYPES.has(clean) || clean.startsWith("image/")) return "photo";
+  if (ALLOWED_GUEST_VIDEO_TYPES.has(clean) || clean.startsWith("video/")) return "video";
+  return null;
+}
+

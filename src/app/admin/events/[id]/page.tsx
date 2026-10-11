@@ -8,6 +8,7 @@ import { deleteEvent } from "../../actions";
 import { AddGuestForm, BulkGuestForm, EventForm } from "../../forms";
 import { GuestTable } from "./guest-table";
 import { EventTabs } from "./event-tabs";
+import { EventMediaFeed } from "@/components/media/event-media-feed";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,17 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const event = await db.event.findUnique({
     where: { id },
-    include: { guests: { orderBy: [{ tableName: "asc" }, { name: "asc" }] } },
+    include: {
+      guests: { orderBy: [{ tableName: "asc" }, { name: "asc" }] },
+      media: {
+        include: {
+          guest: {
+            select: { name: true, honorific: true, code: true, tableName: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
   });
   if (!event) notFound();
 
@@ -181,6 +192,40 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 
+  // Guest Media tab content
+  const mediaContent = (
+    <div className="space-y-6 max-w-[56rem]">
+      <div className="rounded-xs border border-cotton-3 bg-white p-6 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="font-display text-xl font-bold text-coffee">Guest Captured Memories</h3>
+            <p className="mt-1 font-body text-sm text-ash">
+              Photos and short video clips uploaded live by attendees during {event.title}.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs uppercase px-2.5 py-1 bg-gold/15 text-coffee font-semibold rounded-xs">
+              {event.media.length} {event.media.length === 1 ? "Moment" : "Moments"}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-cotton-3 pt-6">
+          <EventMediaFeed
+            initialMedia={event.media.map((m) => ({
+              ...m,
+              mediaType: m.mediaType === "video" ? ("video" as const) : ("photo" as const),
+              createdAt: m.createdAt.toISOString(),
+            }))}
+            eventId={event.id}
+            isAdmin={true}
+            emptyMessage="No photos or video clips captured by guests yet. Once attendees scan their card and share moments, they will appear here in real time."
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
       {/* Event Header */}
@@ -215,7 +260,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* KPI Metric Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1: Guests & Tables */}
         <div className="rounded-xs border border-cotton-3 bg-white p-5 shadow-xs">
           <p className="font-mono text-[0.62rem] font-semibold tracking-[0.18em] text-ash uppercase">
@@ -268,15 +313,37 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             />
           </div>
         </div>
+
+        {/* Card 4: Guest Moments Captured */}
+        <div className="rounded-xs border border-cotton-3 bg-white p-5 shadow-xs">
+          <div className="flex items-center justify-between">
+            <p className="font-mono text-[0.62rem] font-semibold tracking-[0.18em] text-ash uppercase">
+              Guest Moments
+            </p>
+            <span className="font-mono text-[0.65rem] font-bold text-coffee">
+              {event.media.length} Total
+            </span>
+          </div>
+          <p className="mt-2 font-display text-3xl font-bold text-coffee">
+            {event.media.length}
+          </p>
+          <p className="mt-1 font-mono text-[0.65rem] text-ash tracking-wider">
+            {event.media.filter((m) => m.mediaType === "photo").length} photos ·{" "}
+            {event.media.filter((m) => m.mediaType === "video").length} videos
+          </p>
+        </div>
       </div>
 
       {/* Tabs */}
       <EventTabs
         guestCount={totalGuests}
+        mediaCount={event.media.length}
         guestsContent={guestsContent}
+        mediaContent={mediaContent}
         settingsContent={settingsContent}
         printContent={printContent}
       />
     </div>
   );
 }
+

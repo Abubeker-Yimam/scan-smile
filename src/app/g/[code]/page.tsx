@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { eventTheme, threadVars } from "@/lib/events";
 import { formatEventDate, resolveVideo } from "@/lib/media";
+import { GuestMediaSection } from "./guest-media-section";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,30 @@ export default async function GuestPage({ params }: Params) {
   const photo = guest.photoUrl?.trim() || event.coverImageUrl?.trim() || null;
   const date = formatEventDate(event.eventDate);
   const table = guest.tableName?.trim() || null;
+
+  const initialMediaRaw = await db.eventMedia
+    .findMany({
+      where: { eventId: guest.eventId },
+      include: {
+        guest: {
+          select: {
+            name: true,
+            honorific: true,
+            code: true,
+            tableName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    })
+    .catch(() => []);
+
+  const initialMedia = initialMediaRaw.map((m) => ({
+    ...m,
+    mediaType: m.mediaType === "video" ? ("video" as const) : ("photo" as const),
+    createdAt: m.createdAt.toISOString(),
+  }));
 
   return (
     <main
@@ -218,6 +243,15 @@ export default async function GuestPage({ params }: Params) {
               </dl>
             </>
           )}
+
+          <GuestMediaSection
+            eventId={event.id}
+            guestId={guest.id}
+            guestName={guest.name}
+            hostNames={event.hostNames}
+            initialMedia={initialMedia}
+            themeStyle={threadVars(event)}
+          />
         </div>
 
         <div className="tibeb h-4" aria-hidden="true" />

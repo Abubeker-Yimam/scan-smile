@@ -7,6 +7,9 @@ import {
   IMAGE_MAX_PIXELS,
   IMAGE_QUALITY,
   VIDEO_MAX_BYTES,
+  GUEST_MEDIA_MAX_BYTES,
+  GUEST_MEDIA_IMAGE_MAX_EDGE,
+  GUEST_MEDIA_IMAGE_QUALITY,
   formatBytes,
 } from "@/lib/upload-limits";
 
@@ -178,3 +181,107 @@ export async function deleteUpload(url: string | null | undefined): Promise<void
 export async function deleteUploads(urls: Array<string | null | undefined>): Promise<void> {
   await Promise.all(urls.map(deleteUpload));
 }
+
+export type SavedGuestMedia = {
+  url: string;
+  mediaType: "photo" | "video";
+  mimeType: string;
+  fileSize: number;
+};
+
+/**
+ * Stores an attendee-uploaded photo or short video clip.
+ * Applies size bounds (max 25MB), lightweight image normalization (Sharp WebP resize),
+ * EXIF stripping, and direct storage driver writing.
+ */
+export async function saveGuestMedia(file: FormDataEntryValue | null): Promise<SavedGuestMedia> {
+  if (!uploaded(file)) {
+    throw new UploadError("No media file was uploaded.");
+  }
+
+  if (file.size > GUEST_MEDIA_MAX_BYTES) {
+    throw new UploadError(
+      `${file.name} is ${formatBytes(file.size)}. Attendee media must be under ${formatBytes(
+        GUEST_MEDIA_MAX_BYTES
+      )}.`
+    );
+  }
+
+  const rawType = (file.type || "").toLowerCase().split(";")[0].trim();
+  const isImage = IMAGE_TYPES.has(rawType) || rawType.startsWith("image/");
+  const isVideo = Boolean(VIDEO_TYPES[rawType]) || rawType.startsWith("video/");
+
+  if (!isImage && !isVideo) {
+    throw new UploadError(
+      `${file.name} is not a supported format. Please upload a photo (JPG, PNG, WebP, HEIC) or short video (MP4, WebM, MOV).`
+    );
+  }
+
+  if (isImage) {
+    const input = Buffer.from(await file.arrayBuffer());
+    const image = sharp(input, { limitInputPixels: IMAGE_MAX_PIXELS, failOn: "error" });
+
+    let width: number | undefined;
+    let height: number | undefined;
+    try {
+      ({ width, height } = await image.metadata());
+    } catch {
+      throw new UploadError(
+        `${file.name} could not be read as an image. Try taking another shot or choosing from your photo gallery.`
+      );
+    }
+
+    if (!width || !height) {
+      throw new UploadError(`${file.name} has no readable image dimensions.`);
+    }
+
+    let output: Buffer;
+    try {
+      output = await image
+        .rotate()
+        .resize({
+          width: GUEST_MEDIA_IMAGE_MAX_EDGE,
+          height: GUEST_MEDIA_IMAGE_MAX_EDGE,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .webp({ quality: GUEST_MEDIA_IMAGE_QUALITY })
+        .toBuffer();
+    } catch {
+      throw new UploadError(
+        `${file.name} could not be processed. Please try another photo.`
+      );
+    }
+
+    const name = key(".webp");
+    await storage().put(name, output, "image/webp");
+    return {
+      url: storage().urlFor(name),
+      mediaType: "photo",
+      mimeType: "image/webp",
+      fileSize: output.length,
+    };
+  }
+
+  // Handle Video
+  let extension = VIDEO_TYPES[rawType];
+  if (!extension) {
+    if (rawType === "video/webm") extension = ".webm";
+    else if (rawType === "video/quicktime") extension = ".mov";
+    else extension = ".mp4";
+  }
+
+  const output = Buffer.from(await file.arrayBuffer());
+  const name = key(extension);
+  const mime = rawType || (extension === ".webm" ? "video/webm" : extension === ".mov" ? "video/quicktime" : "video/mp4");
+
+  await storage().put(name, output, mime);
+
+  return {
+    url: storage().urlFor(name),
+    mediaType: "video",
+    mimeType: mime,
+    fileSize: output.length,
+  };
+}
+
