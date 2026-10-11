@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { eventTheme, threadVars } from "@/lib/events";
 import { formatEventDate, resolveVideo } from "@/lib/media";
+import { GuestPhotoGallery } from "@/components/guest/guest-photo-gallery";
+import { GuestVideoSection } from "@/components/guest/guest-video-section";
 import { GuestMediaSection } from "./guest-media-section";
 
 export const dynamic = "force-dynamic";
@@ -67,9 +69,31 @@ export default async function GuestPage({ params }: Params) {
   const { event } = guest;
   const kind = eventTheme(event);
   const message = guest.message?.trim() || event.defaultMessage?.trim() || null;
-  const videoUrl = guest.videoUrl?.trim() || event.defaultVideoUrl?.trim() || null;
-  const video = videoUrl ? resolveVideo(videoUrl) : null;
-  const photo = guest.photoUrl?.trim() || event.coverImageUrl?.trim() || null;
+  const rawVideoUrls: string[] = (
+    guest.videoUrls && guest.videoUrls.length > 0
+      ? guest.videoUrls
+      : guest.videoUrl
+        ? [guest.videoUrl]
+        : event.defaultVideoUrl
+          ? [event.defaultVideoUrl]
+          : []
+  )
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const videos = rawVideoUrls.map(resolveVideo);
+
+  const photos: string[] = (
+    guest.photoUrls && guest.photoUrls.length > 0
+      ? guest.photoUrls
+      : guest.photoUrl
+        ? [guest.photoUrl]
+        : event.coverImageUrl
+          ? [event.coverImageUrl]
+          : []
+  )
+    .map((p) => p.trim())
+    .filter(Boolean);
+
   const date = formatEventDate(event.eventDate);
   const table = guest.tableName?.trim() || null;
 
@@ -153,16 +177,12 @@ export default async function GuestPage({ params }: Params) {
             {guest.name}
           </h1>
 
-          {photo && (
-            <figure className="u-rise mt-10" style={{ animationDelay: "0.5s" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photo}
-                alt={`${guest.name} with ${event.hostNames}`}
-                className="w-full object-cover"
-                style={{ aspectRatio: "4 / 3", boxShadow: "0 2px 0 var(--color-cotton-3)" }}
-              />
-            </figure>
+          {photos.length > 0 && (
+            <GuestPhotoGallery
+              photos={photos}
+              guestName={guest.name}
+              hostNames={event.hostNames}
+            />
           )}
 
           {message && (
@@ -189,31 +209,11 @@ export default async function GuestPage({ params }: Params) {
             </>
           )}
 
-          {video && (
-            <div className="u-rise mt-10" style={{ animationDelay: "0.7s" }}>
-              {video.type === "embed" ? (
-                <iframe
-                  src={video.src}
-                  title={`A message for ${guest.name}`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full border-0 bg-ink-2"
-                  style={{ aspectRatio: "16 / 9" }}
-                />
-              ) : (
-                <video
-                  src={video.src}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="w-full bg-ink-2"
-                  style={{ aspectRatio: "16 / 9" }}
-                />
-              )}
-              <p className="mt-3 font-mono text-[0.65rem] tracking-[0.2em] text-ash uppercase">
-                A message for you
-              </p>
-            </div>
+          {videos.length > 0 && (
+            <GuestVideoSection
+              videos={videos}
+              guestName={guest.name}
+            />
           )}
 
           {(table || event.venue) && (

@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { KIND_OPTIONS } from "@/lib/events";
-import { ImageInput, VideoInput } from "./media-inputs";
+import { ImageInput, MultiImageInput, MultiVideoLinkInput, VideoInput } from "./media-inputs";
 import {
   addGuest,
   addGuestsBulk,
@@ -331,6 +331,9 @@ type GuestDefaults = {
   tableName: string | null;
   message: string | null;
   videoUrl: string | null;
+  photoUrl?: string | null;
+  photoUrls?: string[];
+  videoUrls?: string[];
 };
 
 export function GuestForm({ guest }: { guest: GuestDefaults }) {
@@ -378,29 +381,53 @@ export function GuestForm({ guest }: { guest: GuestDefaults }) {
         />
       </label>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <label className="block">
+      <div className="space-y-6">
+        <div>
           <span className={LABEL}>Photo with the hosts</span>
-          <ImageInput name="photo" className={FIELD} />
-        </label>
-        <label className="block">
-          <span className={LABEL}>Personal video</span>
-          <VideoInput name="video" className={FIELD} />
-        </label>
-      </div>
+          <div className="mt-1.5">
+            <MultiImageInput
+              name="photos"
+              existingUrls={
+                guest.photoUrls && guest.photoUrls.length > 0
+                  ? guest.photoUrls
+                  : guest.photoUrl
+                    ? [guest.photoUrl]
+                    : []
+              }
+              className={FIELD}
+            />
+          </div>
+        </div>
 
-      <label className="block">
-        <span className={LABEL}>Or link a video</span>
-        <input
-          name="videoUrl"
-          defaultValue={guest.videoUrl ?? ""}
-          placeholder="https://youtu.be/…"
-          className={FIELD}
-        />
-        <span className="mt-1.5 block font-body text-xs text-ash">
-          Uploading a file above replaces this link.
-        </span>
-      </label>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <label className="block">
+            <span className={LABEL}>Personal video</span>
+            <VideoInput name="video" className={FIELD} />
+            <span className="mt-1.5 block font-body text-xs text-ash">
+              MP4, MOV or WebM file (up to 50MB).
+            </span>
+          </label>
+
+          <div className="block">
+            <span className={LABEL}>Or link a video</span>
+            <div className="mt-1.5">
+              <MultiVideoLinkInput
+                initialUrls={
+                  guest.videoUrls && guest.videoUrls.length > 0
+                    ? guest.videoUrls
+                    : guest.videoUrl
+                      ? [guest.videoUrl]
+                      : []
+                }
+                className={FIELD}
+              />
+            </div>
+            <span className="mt-1.5 block font-body text-xs text-ash">
+              YouTube, Vimeo, or direct video streams.
+            </span>
+          </div>
+        </div>
+      </div>
 
       <Note state={state} />
       <Submit>Save guest</Submit>

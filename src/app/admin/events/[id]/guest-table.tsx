@@ -12,8 +12,19 @@ export type GuestItem = {
   message: string | null;
   photoUrl: string | null;
   videoUrl: string | null;
+  photoUrls?: string[];
+  videoUrls?: string[];
   scanCount: number;
 };
+
+function guestHasMedia(g: GuestItem): boolean {
+  return Boolean(
+    (g.photoUrls && g.photoUrls.length > 0) ||
+    (g.videoUrls && g.videoUrls.length > 0) ||
+    g.photoUrl ||
+    g.videoUrl
+  );
+}
 
 export function GuestTable({
   eventId,
@@ -49,7 +60,7 @@ export function GuestTable({
       if (filter === "scanned") return g.scanCount > 0;
       if (filter === "unscanned") return g.scanCount === 0;
       if (filter === "custom") return Boolean(g.message);
-      if (filter === "media") return Boolean(g.photoUrl || g.videoUrl);
+      if (filter === "media") return guestHasMedia(g);
 
       return true;
     });
@@ -58,7 +69,7 @@ export function GuestTable({
   const scannedCount = useMemo(() => guests.filter((g) => g.scanCount > 0).length, [guests]);
   const customCount = useMemo(() => guests.filter((g) => Boolean(g.message)).length, [guests]);
   const mediaCount = useMemo(
-    () => guests.filter((g) => Boolean(g.photoUrl || g.videoUrl)).length,
+    () => guests.filter(guestHasMedia).length,
     [guests]
   );
 
@@ -215,7 +226,7 @@ export function GuestTable({
             </thead>
             <tbody className="divide-y divide-cotton-3/60 font-body text-sm">
               {filteredGuests.map((guest) => {
-                const hasMedia = Boolean(guest.photoUrl || guest.videoUrl);
+                const hasMedia = guestHasMedia(guest);
                 const hasCustomMessage = Boolean(guest.message);
                 const hasMessage = Boolean(guest.message ?? defaultMessage);
                 const isCopied = copiedCode === guest.code;

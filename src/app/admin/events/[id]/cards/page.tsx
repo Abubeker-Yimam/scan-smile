@@ -40,8 +40,16 @@ const FONT_FACE = `
  * is purely visual on the card and at print time — there is no separate tier
  * field in the database.
  */
-function isVip(guest: { message: string | null; photoUrl: string | null }): boolean {
-  return Boolean(guest.message || guest.photoUrl);
+function isVip(guest: {
+  message: string | null;
+  photoUrl: string | null;
+  photoUrls?: string[];
+}): boolean {
+  return Boolean(
+    guest.message ||
+    guest.photoUrl ||
+    (guest.photoUrls && guest.photoUrls.length > 0)
+  );
 }
 
 type SearchParams = Promise<{ table?: string; filter?: string }>;

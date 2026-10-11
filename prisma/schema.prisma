@@ -59,9 +59,11 @@ model Guest {
   tableName String?
 
   /// Overrides the event defaults when set.
-  message  String?
-  photoUrl String?
-  videoUrl String?
+  message   String?
+  photoUrl  String?
+  videoUrl  String?
+  photoUrls String[] @default([])
+  videoUrls String[] @default([])
 
   scanCount      Int       @default(0)
   firstScannedAt DateTime?

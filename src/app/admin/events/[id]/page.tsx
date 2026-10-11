@@ -38,7 +38,12 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const totalGuests = event.guests.length;
   const scanned = event.guests.filter((g) => g.scanCount > 0).length;
   const ready = event.guests.filter(
-    (g) => (g.message ?? event.defaultMessage) && (g.photoUrl || g.videoUrl)
+    (g) =>
+      (g.message ?? event.defaultMessage) &&
+      (g.photoUrl ||
+        g.videoUrl ||
+        (g.photoUrls && g.photoUrls.length > 0) ||
+        (g.videoUrls && g.videoUrls.length > 0))
   ).length;
 
   const scannedPercent = totalGuests > 0 ? Math.round((scanned / totalGuests) * 100) : 0;

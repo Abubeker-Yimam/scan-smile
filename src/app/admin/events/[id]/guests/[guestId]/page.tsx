@@ -23,6 +23,20 @@ export default async function GuestEditorPage({
   const url = guestUrl(guest.code);
   const kind = eventTheme(guest.event);
 
+  const guestPhotos =
+    guest.photoUrls && guest.photoUrls.length > 0
+      ? guest.photoUrls
+      : guest.photoUrl
+        ? [guest.photoUrl]
+        : [];
+
+  const guestVideos =
+    guest.videoUrls && guest.videoUrls.length > 0
+      ? guest.videoUrls
+      : guest.videoUrl
+        ? [guest.videoUrl]
+        : [];
+
   return (
     <div className="space-y-12">
       <header>
@@ -63,22 +77,25 @@ export default async function GuestEditorPage({
                 tableName: guest.tableName,
                 message: guest.message,
                 videoUrl: guest.videoUrl,
+                photoUrl: guest.photoUrl,
+                photoUrls: guestPhotos,
+                videoUrls: guestVideos,
               }}
             />
           </div>
 
-          {(guest.photoUrl || guest.videoUrl) && (
+          {(guestPhotos.length > 0 || guestVideos.length > 0) && (
             <div className="mt-10 border-t border-cotton-3 pt-8">
               <h3 className="font-mono text-[0.62rem] tracking-[0.18em] text-ash uppercase">
                 Attached media
               </h3>
               <div className="mt-4 flex flex-wrap gap-8">
-                {guest.photoUrl && (
-                  <figure className="w-48">
+                {guestPhotos.map((url, idx) => (
+                  <figure key={`attached-photo-${idx}-${url}`} className="w-48">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={guest.photoUrl}
-                      alt=""
+                      src={url}
+                      alt={`Photo ${idx + 1}`}
                       className="w-full border border-cotton-3 object-cover"
                       style={{ aspectRatio: "4 / 3" }}
                     />
@@ -86,27 +103,33 @@ export default async function GuestEditorPage({
                       <input type="hidden" name="id" value={guest.id} />
                       <input type="hidden" name="eventId" value={guest.eventId} />
                       <input type="hidden" name="field" value="photo" />
-                      <button className="font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4 hover:text-[#8E1F2F]">
+                      <input type="hidden" name="url" value={url} />
+                      <button className="font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4 hover:text-[#8E1F2F] cursor-pointer">
                         Remove photo
                       </button>
                     </form>
                   </figure>
-                )}
-                {guest.videoUrl && (
-                  <figure className="w-64">
-                    <p className="truncate border border-cotton-3 bg-white px-3 py-2 font-mono text-xs text-ash">
-                      {guest.videoUrl}
+                ))}
+
+                {guestVideos.map((url, idx) => (
+                  <figure key={`attached-video-${idx}-${url}`} className="w-64">
+                    <p
+                      className="truncate border border-cotton-3 bg-white px-3 py-2 font-mono text-xs text-ash"
+                      title={url}
+                    >
+                      {url}
                     </p>
                     <form action={clearGuestMedia} className="mt-2">
                       <input type="hidden" name="id" value={guest.id} />
                       <input type="hidden" name="eventId" value={guest.eventId} />
                       <input type="hidden" name="field" value="video" />
-                      <button className="font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4 hover:text-[#8E1F2F]">
+                      <input type="hidden" name="url" value={url} />
+                      <button className="font-mono text-[0.62rem] tracking-[0.16em] text-ash uppercase underline underline-offset-4 hover:text-[#8E1F2F] cursor-pointer">
                         Remove video
                       </button>
                     </form>
                   </figure>
-                )}
+                ))}
               </div>
             </div>
           )}

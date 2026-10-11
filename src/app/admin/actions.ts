@@ -133,7 +133,7 @@ export async function deleteEvent(form: FormData) {
     where: { id },
     select: {
       coverImageUrl: true,
-      guests: { select: { photoUrl: true, videoUrl: true } },
+      guests: { select: { photoUrl: true, videoUrl: true, photoUrls: true, videoUrls: true } },
       media: { select: { url: true } },
     },
   });
@@ -143,7 +143,12 @@ export async function deleteEvent(form: FormData) {
   if (event) {
     await deleteUploads([
       event.coverImageUrl,
-      ...event.guests.flatMap((guest) => [guest.photoUrl, guest.videoUrl]),
+      ...event.guests.flatMap((guest) => [
+        guest.photoUrl,
+        guest.videoUrl,
+        ...guest.photoUrls,
+        ...guest.videoUrls,
+      ]),
       ...event.media.map((m) => m.url),
     ]);
   }
@@ -212,22 +217,91 @@ export async function updateGuest(_prev: ActionState, form: FormData): Promise<A
 
   const existing = await db.guest.findUnique({
     where: { id },
-    select: { photoUrl: true, videoUrl: true },
+    select: {
+      code: true,
+      photoUrl: true,
+      videoUrl: true,
+      photoUrls: true,
+      videoUrls: true,
+    },
   });
   if (!existing) return { error: "That guest no longer exists." };
 
-  let photoUrl: string | null = null;
-  let videoUrl: string | null = null;
+  // 1. Process kept existing photo URLs
+  const keptPhotoUrls = form
+    .getAll("existingPhotoUrls")
+    .map(String)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // 2. Process newly uploaded photos (support both multiple 'photos' and single 'photo')
+  const photoEntries = [
+    ...form.getAll("photos"),
+    form.get("photo"),
+  ].filter(Boolean);
+
+  const newPhotoUrls: string[] = [];
   try {
-    photoUrl = await saveImage(form.get("photo"));
-    videoUrl = await saveVideo(form.get("video"));
+    for (const entry of photoEntries) {
+      const url = await saveImage(entry);
+      if (url) newPhotoUrls.push(url);
+    }
   } catch (error) {
     if (error instanceof UploadError) return { error: error.message };
     throw error;
   }
 
-  // A pasted link wins only when no file was uploaded in the same save.
-  const nextVideo = videoUrl ?? optional(form, "videoUrl");
+  const existingAllPhotos =
+    existing.photoUrls && existing.photoUrls.length > 0
+      ? existing.photoUrls
+      : existing.photoUrl
+        ? [existing.photoUrl]
+        : [];
+
+  const hasPhotoSubmission =
+    form.has("photos") || form.has("existingPhotoUrls") || form.has("photo");
+
+  const allPhotoUrls = hasPhotoSubmission
+    ? [...keptPhotoUrls, ...newPhotoUrls]
+    : existingAllPhotos;
+
+  // 3. Process video URLs from dynamic list or single input
+  const videoUrlEntries = [
+    ...form.getAll("videoUrls").map(String),
+    optional(form, "videoUrl"),
+  ]
+    .filter(Boolean)
+    .map((s) => (s as string).trim())
+    .filter((s) => s.length > 0);
+
+  // Deduplicate maintaining input order
+  const distinctVideoLinks = Array.from(new Set(videoUrlEntries));
+
+  // Process optional direct video upload
+  let uploadedVideoUrl: string | null = null;
+  try {
+    uploadedVideoUrl = await saveVideo(form.get("video"));
+  } catch (error) {
+    if (error instanceof UploadError) return { error: error.message };
+    throw error;
+  }
+
+  const hasVideoSubmission =
+    form.has("videoUrls") || form.has("videoUrl") || form.has("video");
+
+  const existingAllVideos =
+    existing.videoUrls && existing.videoUrls.length > 0
+      ? existing.videoUrls
+      : existing.videoUrl
+        ? [existing.videoUrl]
+        : [];
+
+  let allVideoUrls = existingAllVideos;
+  if (hasVideoSubmission) {
+    allVideoUrls = uploadedVideoUrl
+      ? [uploadedVideoUrl, ...distinctVideoLinks]
+      : distinctVideoLinks;
+  }
 
   await db.guest.update({
     where: { id },
@@ -236,20 +310,35 @@ export async function updateGuest(_prev: ActionState, form: FormData): Promise<A
       honorific: optional(form, "honorific"),
       tableName: optional(form, "tableName"),
       message: optional(form, "message"),
-      ...(photoUrl ? { photoUrl } : {}),
-      videoUrl: nextVideo,
+      photoUrl: allPhotoUrls[0] ?? null,
+      videoUrl: allVideoUrls[0] ?? null,
+      photoUrls: allPhotoUrls,
+      videoUrls: allVideoUrls,
     },
   });
 
-  // Replacing a photo, or replacing an uploaded video with a different file or
-  // a pasted link, strands the old file. Drop it now that nothing points at it.
-  if (photoUrl) await deleteUpload(existing.photoUrl);
-  if (existing.videoUrl && existing.videoUrl !== nextVideo) {
-    await deleteUpload(existing.videoUrl);
+  // Clean up any uploaded photos that were removed
+  const oldPhotoSet = new Set(existingAllPhotos);
+  for (const oldPhoto of oldPhotoSet) {
+    if (!allPhotoUrls.includes(oldPhoto)) {
+      await deleteUpload(oldPhoto);
+    }
+  }
+
+  // Clean up any uploaded videos that were removed
+  const oldVideoSet = new Set(existingAllVideos);
+  for (const oldVideo of oldVideoSet) {
+    if (!allVideoUrls.includes(oldVideo)) {
+      await deleteUpload(oldVideo);
+    }
   }
 
   revalidatePath(`/admin/events/${eventId}`);
   revalidatePath(`/admin/events/${eventId}/guests/${id}`);
+  revalidatePath(`/admin/events/${eventId}/cards`);
+  if (existing.code) {
+    revalidatePath(`/g/${existing.code}`);
+  }
   return { ok: "Guest saved." };
 }
 
@@ -257,19 +346,67 @@ export async function clearGuestMedia(form: FormData) {
   const id = text(form, "id");
   const eventId = text(form, "eventId");
   const field = text(form, "field");
+  const targetUrl = optional(form, "url");
 
   const existing = await db.guest.findUnique({
     where: { id },
-    select: { photoUrl: true, videoUrl: true },
+    select: { photoUrl: true, videoUrl: true, photoUrls: true, videoUrls: true },
   });
+  if (!existing) return;
 
-  await db.guest.update({
-    where: { id },
-    data: field === "photo" ? { photoUrl: null } : { videoUrl: null },
-  });
+  if (field === "photo") {
+    if (targetUrl) {
+      const currentList =
+        existing.photoUrls && existing.photoUrls.length > 0
+          ? existing.photoUrls
+          : existing.photoUrl
+            ? [existing.photoUrl]
+            : [];
+      const remaining = currentList.filter((u) => u !== targetUrl);
 
-  await deleteUpload(field === "photo" ? existing?.photoUrl : existing?.videoUrl);
+      await db.guest.update({
+        where: { id },
+        data: {
+          photoUrls: remaining,
+          photoUrl: remaining[0] ?? null,
+        },
+      });
+      await deleteUpload(targetUrl);
+    } else {
+      await db.guest.update({
+        where: { id },
+        data: { photoUrls: [], photoUrl: null },
+      });
+      await deleteUploads([existing.photoUrl, ...existing.photoUrls]);
+    }
+  } else if (field === "video") {
+    if (targetUrl) {
+      const currentList =
+        existing.videoUrls && existing.videoUrls.length > 0
+          ? existing.videoUrls
+          : existing.videoUrl
+            ? [existing.videoUrl]
+            : [];
+      const remaining = currentList.filter((u) => u !== targetUrl);
 
+      await db.guest.update({
+        where: { id },
+        data: {
+          videoUrls: remaining,
+          videoUrl: remaining[0] ?? null,
+        },
+      });
+      await deleteUpload(targetUrl);
+    } else {
+      await db.guest.update({
+        where: { id },
+        data: { videoUrls: [], videoUrl: null },
+      });
+      await deleteUploads([existing.videoUrl, ...existing.videoUrls]);
+    }
+  }
+
+  revalidatePath(`/admin/events/${eventId}`);
   revalidatePath(`/admin/events/${eventId}/guests/${id}`);
 }
 
@@ -279,11 +416,18 @@ export async function deleteGuest(form: FormData) {
 
   const existing = await db.guest.findUnique({
     where: { id },
-    select: { photoUrl: true, videoUrl: true },
+    select: { photoUrl: true, videoUrl: true, photoUrls: true, videoUrls: true },
   });
 
   await db.guest.delete({ where: { id } });
-  await deleteUploads([existing?.photoUrl, existing?.videoUrl]);
+  if (existing) {
+    await deleteUploads([
+      existing.photoUrl,
+      existing.videoUrl,
+      ...existing.photoUrls,
+      ...existing.videoUrls,
+    ]);
+  }
 
   revalidatePath(`/admin/events/${eventId}`);
   redirect(`/admin/events/${eventId}`);

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Guest" ADD COLUMN "photoUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "Guest" ADD COLUMN "videoUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];
