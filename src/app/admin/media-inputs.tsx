@@ -477,7 +477,7 @@ export function MultiImageInput({
                 <img
                   src={url}
                   alt={`Saved photo ${idx + 1}`}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-contain"
                 />
                 <span className="absolute bottom-1.5 left-1.5 bg-ink/75 px-1.5 py-0.5 font-mono text-[0.58rem] uppercase tracking-wider text-cotton backdrop-blur-xs">
                   Saved #{idx + 1}
@@ -510,7 +510,7 @@ export function MultiImageInput({
                 <img
                   src={item.previewUrl}
                   alt={`Pending photo ${idx + 1}`}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-contain"
                 />
                 {item.status === "working" && (
                   <div className="absolute inset-0 flex items-center justify-center bg-ink/60 backdrop-blur-xs">

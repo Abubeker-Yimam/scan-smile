@@ -96,8 +96,7 @@ export default async function GuestEditorPage({
                     <img
                       src={url}
                       alt={`Photo ${idx + 1}`}
-                      className="w-full border border-cotton-3 object-cover"
-                      style={{ aspectRatio: "4 / 3" }}
+                      className="h-auto w-full border border-cotton-3"
                     />
                     <form action={clearGuestMedia} className="mt-2">
                       <input type="hidden" name="id" value={guest.id} />

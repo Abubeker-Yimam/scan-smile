@@ -39,8 +39,8 @@ export function GuestPhotoGallery({
         <img
           src={photos[0]}
           alt={`${guestName} with ${hostNames}`}
-          className="w-full object-cover"
-          style={{ aspectRatio: "4 / 3", boxShadow: "0 2px 0 var(--color-cotton-3)" }}
+          className="h-auto w-full"
+          style={{ boxShadow: "0 2px 0 var(--color-cotton-3)" }}
         />
       </figure>
     );
@@ -69,7 +69,7 @@ export function GuestPhotoGallery({
           key={photos[activeIndex]}
           src={photos[activeIndex]}
           alt={`${guestName} with ${hostNames} (Photo ${activeIndex + 1} of ${total})`}
-          className="h-full w-full object-cover transition-opacity duration-300"
+          className="h-full w-full object-contain transition-opacity duration-300"
         />
 
         {/* Counter Badge */}
